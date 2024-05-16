@@ -1,12 +1,13 @@
-use std::net::TcpListener;
+use std::{io::Write, net::TcpListener};
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
 
-    for stream in listener.incoming() {
+    for mut stream in listener.incoming() {
         match stream {
-            Ok(_) => {
-                println!("accepted new connection");
+            Ok(ref mut stream) => {
+                let response = "+PONG\r\n".as_bytes();
+                stream.write(response).unwrap();
             }
             Err(e) => {
                 println!("error: {}", e);
