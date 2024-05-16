@@ -8,6 +8,7 @@ fn main() {
             Ok(ref mut stream) => {
                 let response = "+PONG\r\n".as_bytes();
                 stream.write(response).unwrap();
+                stream.write(response).unwrap();
             }
             Err(e) => {
                 println!("error: {}", e);
