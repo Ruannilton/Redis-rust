@@ -45,6 +45,7 @@ async fn handle_client_connection(mut stream: TcpStream) -> Result<(), Box<dyn s
                     if let Some(args) = command.args {
                         let arg = args[0].clone();
                         let resp = resp_encoder::resp_encode_bulk_string(arg);
+                        println!("encoded {}", resp);
                         stream.write(resp.as_bytes()).await?;
                     }
                 }
