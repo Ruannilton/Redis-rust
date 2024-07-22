@@ -39,17 +39,20 @@ async fn handle_client_connection(mut stream: TcpStream) -> Result<(), Box<dyn s
         if let Some(command) = resp_decoder::BufferDecoder::decode(buffer) {
             match command.command.as_str() {
                 "PING" => {
+                    println!("PING");
                     stream.write(PONG_RESPONSE).await?;
                 }
                 "ECHO" => {
                     if let Some(args) = command.args {
                         let arg = args[0].clone();
                         let resp = resp_encoder::resp_encode_bulk_string(arg);
-                        println!("encoded {}", resp);
+                        println!("ECHO");
                         stream.write(resp.as_bytes()).await?;
                     }
                 }
-                _ => {}
+                _ => {
+                    println!("Comand not recognized");
+                }
             }
         }
     }
