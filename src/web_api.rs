@@ -29,26 +29,31 @@ impl RedisServer {
     }
 
     async fn handle_request(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
-        let mut payload_buffer = Vec::new();
-        _ = stream.read_buf(&mut payload_buffer).await?;
+        loop {
+            let mut payload_buffer = Vec::new();
+            let readed = stream.read(&mut payload_buffer).await?;
 
-        println!(
-            "Received: {:?}",
-            std::str::from_utf8(payload_buffer.clone().as_slice())?
-        );
+            if readed == 0 {
+                break;
+            }
 
-        let command = parser::desserialize(payload_buffer)?;
-        let app = RedisApp::new();
-        let result = app.execute_command(command)?;
-        let response = parser::serialize(result);
+            println!(
+                "Received: {:?}",
+                std::str::from_utf8(payload_buffer.clone().as_slice())?
+            );
 
-        stream.write(response.as_slice()).await?;
+            let command = parser::desserialize(payload_buffer)?;
+            let app = RedisApp::new();
+            let result = app.execute_command(command)?;
+            let response = parser::serialize(result);
 
-        println!(
-            "Returned: {:?}",
-            std::str::from_utf8(response.clone().as_slice())?
-        );
+            stream.write(response.as_slice()).await?;
 
+            println!(
+                "Returned: {:?}",
+                std::str::from_utf8(response.clone().as_slice())?
+            );
+        }
         Ok(())
     }
 }
