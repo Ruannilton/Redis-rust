@@ -11,6 +11,8 @@ pub enum Command {
     Ping,
     Echo(String),
     Invalid,
+    Set(String, String),
+    Get(String),
 }
 
 pub fn desserialize(input: Vec<u8>) -> Result<Command, Box<dyn std::error::Error>> {
@@ -21,8 +23,7 @@ pub fn desserialize(input: Vec<u8>) -> Result<Command, Box<dyn std::error::Error
 }
 
 pub fn serialize(input: String) -> Vec<u8> {
-    let encoded = format!("${}\r\n{}\r\n", input.len(), input);
-    let bytes = encoded.into_bytes();
+    let bytes = input.into_bytes();
     bytes
 }
 
@@ -130,6 +131,8 @@ fn handle_agregate_command(mut values: VecDeque<TokenValue>) -> Command {
         let upper_cmd = command.to_uppercase();
         match upper_cmd.as_str() {
             "ECHO" => handle_agregate_echo(&mut values),
+            "GET" => handle_agregate_get(&mut values),
+            "SET" => handle_agregate_set(&mut values),
             _ => Command::Invalid,
         }
     } else {
@@ -140,6 +143,22 @@ fn handle_agregate_command(mut values: VecDeque<TokenValue>) -> Command {
 fn handle_agregate_echo(values: &mut VecDeque<TokenValue>) -> Command {
     if let Some(TokenValue::String(arg)) = values.pop_front() {
         return Command::Echo(arg);
+    }
+    Command::Invalid
+}
+
+fn handle_agregate_set(values: &mut VecDeque<TokenValue>) -> Command {
+    if let (Some(TokenValue::String(key)), Some(TokenValue::String(value))) =
+        (values.pop_front(), values.pop_front())
+    {
+        return Command::Set(key, value);
+    }
+    Command::Invalid
+}
+
+fn handle_agregate_get(values: &mut VecDeque<TokenValue>) -> Command {
+    if let Some(TokenValue::String(arg)) = values.pop_front() {
+        return Command::Get(arg);
     }
     Command::Invalid
 }
