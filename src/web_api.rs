@@ -30,12 +30,15 @@ impl RedisServer {
 
     async fn handle_request(mut stream: TcpStream) -> Result<(), Box<dyn std::error::Error>> {
         loop {
+            let mut buffer = [0; 1024]; // Um buffer de tamanho fixo para leitura
             let mut payload_buffer = Vec::new();
-            let readed = stream.read(&mut payload_buffer).await?;
+            let readed = stream.read(&mut buffer).await?;
 
             if readed == 0 {
                 break;
             }
+
+            payload_buffer.extend_from_slice(&buffer[..readed]);
 
             println!(
                 "Received: {:?}",
