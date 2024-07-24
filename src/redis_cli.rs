@@ -43,7 +43,7 @@ impl RedisApp {
     }
 
     fn ping_command() -> String {
-        let response = String::from("PING");
+        let response = String::from("PONG");
         Self::format_bulk_string(response)
     }
 
