@@ -19,11 +19,8 @@ impl RedisApp {
         value: String,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut mem = self.memory.lock().unwrap();
-        let insert_result = mem.insert(key, value);
-        match insert_result {
-            Some(_) => Ok(Self::format_simple_string(String::from("OK"))),
-            None => Err(Box::new(std::fmt::Error)),
-        }
+        _ = mem.insert(key, value);
+        Ok(Self::format_simple_string(String::from("OK")))
     }
 
     fn get_command(&self, key: String) -> Result<String, Box<dyn std::error::Error>> {
