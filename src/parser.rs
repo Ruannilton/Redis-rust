@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(PartialEq)]
 enum TokenValue {
@@ -11,7 +11,7 @@ pub enum Command {
     Ping,
     Echo(String),
     Invalid,
-    Set(String, String),
+    Set(String, String, Option<u128>),
     Get(String),
 }
 
@@ -151,9 +151,51 @@ fn handle_agregate_set(values: &mut VecDeque<TokenValue>) -> Command {
     if let (Some(TokenValue::String(key)), Some(TokenValue::String(value))) =
         (values.pop_front(), values.pop_front())
     {
-        return Command::Set(key, value);
+        let mut expires_at: Option<u128> = None;
+
+        if value.len() > 0 {
+            let options = get_set_options(values);
+
+            for (op, arg) in options {
+                match (op.as_str(), arg) {
+                    ("PX", Some(exp)) => expires_at = exp.parse::<u128>().ok(),
+                    ("EX", Some(exp)) => expires_at = exp.parse::<u128>().map(|x| x * 1000).ok(),
+                    _ => {}
+                }
+            }
+        }
+
+        return Command::Set(key, value, expires_at);
     }
     Command::Invalid
+}
+
+fn get_set_options(values: &mut VecDeque<TokenValue>) -> HashMap<String, Option<String>> {
+    let mut options = HashMap::new();
+    loop {
+        if values.is_empty() {
+            break;
+        }
+
+        if let Some(TokenValue::String(op)) = values.pop_front() {
+            let op = op.to_uppercase();
+
+            match op.as_str() {
+                "PX" => {
+                    if let Some(TokenValue::String(val)) = values.pop_front() {
+                        _ = options.insert(op, Some(val));
+                    }
+                }
+                "EX" => {
+                    if let Some(TokenValue::String(val)) = values.pop_front() {
+                        _ = options.insert(op, Some(val));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    options
 }
 
 fn handle_agregate_get(values: &mut VecDeque<TokenValue>) -> Command {
