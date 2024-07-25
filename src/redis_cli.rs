@@ -13,13 +13,39 @@ struct EntryValue {
 
 pub struct RedisApp {
     memory: Mutex<HashMap<String, EntryValue>>,
+    configurations: Mutex<HashMap<String, String>>,
 }
 
 impl RedisApp {
-    pub fn new() -> Self {
+    pub fn new(args: impl Iterator<Item = String>) -> Self {
+        let configurations = Mutex::new(Self::load_configs_from_args(args));
+
         RedisApp {
             memory: Mutex::new(HashMap::new()),
+            configurations,
         }
+    }
+
+    fn load_configs_from_args(mut args: impl Iterator<Item = String>) -> HashMap<String, String> {
+        let mut configs = HashMap::new();
+
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--dir" => {
+                    if let Some(dir_value) = args.next() {
+                        _ = configs.insert("dir".to_owned(), dir_value);
+                    }
+                }
+                "--dbfilename" => {
+                    if let Some(filename_value) = args.next() {
+                        _ = configs.insert("dbfilename".to_owned(), filename_value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        println!("Configs: {:?}", configs);
+        configs
     }
 
     fn get_current_time_ms() -> u128 {
@@ -75,6 +101,7 @@ impl RedisApp {
             Command::Echo(arg) => Ok(Self::echo_command(arg)),
             Command::Get(key) => Ok(self.get_command(key)),
             Command::Set(key, value, expires_at) => self.set_command(key, value, expires_at),
+            Command::ConfigGet(cfg) => Ok(self.config_get_command(cfg)),
             _ => Ok(String::from("INVALID")),
         }
     }
@@ -86,6 +113,17 @@ impl RedisApp {
 
     fn echo_command(arg: String) -> String {
         Self::format_bulk_string(arg)
+    }
+
+    fn config_get_command(&self, arg: String) -> String {
+        let config: std::sync::MutexGuard<HashMap<String, String>> =
+            self.configurations.lock().unwrap();
+
+        if let Some(value) = config.get(&arg) {
+            return Self::format_bulk_string(value.to_owned());
+        }
+
+        Self::format_null_bulk_string()
     }
 
     fn format_bulk_string(arg: String) -> String {

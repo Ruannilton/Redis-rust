@@ -12,12 +12,12 @@ pub struct RedisServer {
 }
 
 impl RedisServer {
-    pub async fn new(address: &str) -> Result<Self, std::io::Error> {
+    pub async fn new(address: &str, redis_instance: Arc<RedisApp>) -> Result<Self, std::io::Error> {
         let listener = TcpListener::bind(address).await?;
 
         Ok(RedisServer {
             listener,
-            cli: Arc::new(RedisApp::new()),
+            cli: redis_instance,
         })
     }
 
