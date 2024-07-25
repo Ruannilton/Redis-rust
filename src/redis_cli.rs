@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::format,
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -120,7 +121,8 @@ impl RedisApp {
             self.configurations.lock().unwrap();
 
         if let Some(value) = config.get(&arg) {
-            return Self::format_bulk_string(value.to_owned());
+            let values = vec![arg, value.to_owned()];
+            return Self::format_array(values);
         }
 
         Self::format_null_bulk_string()
@@ -138,5 +140,18 @@ impl RedisApp {
     fn format_simple_string(arg: String) -> String {
         let encoded = format!("+{}\r\n", arg);
         encoded
+    }
+
+    fn format_array(values: Vec<String>) -> String {
+        if values.is_empty() {
+            return "*0\r\n".to_owned();
+        }
+
+        let mut response = String::from(format!("*{}\r\n", values.len()));
+        for v in values {
+            response.push_str(&format!("${}\r\n{}\r\n", v.len(), v));
+        }
+
+        response
     }
 }
