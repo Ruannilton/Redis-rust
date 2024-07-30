@@ -14,6 +14,7 @@ pub enum Command {
     Set(String, String, Option<u128>),
     Get(String),
     ConfigGet(String),
+    Keys(String),
 }
 
 pub fn desserialize(input: Vec<u8>) -> Result<Command, Box<dyn std::error::Error>> {
@@ -135,6 +136,7 @@ fn handle_agregate_command(mut values: VecDeque<TokenValue>) -> Command {
             "GET" => handle_agregate_get(&mut values),
             "SET" => handle_agregate_set(&mut values),
             "CONFIG" => handler_agregate_config(&mut values),
+            "KEYS" => handle_agregate_keys(&mut values),
             _ => Command::Invalid,
         }
     } else {
@@ -203,6 +205,13 @@ fn get_set_options(values: &mut VecDeque<TokenValue>) -> HashMap<String, Option<
 fn handle_agregate_get(values: &mut VecDeque<TokenValue>) -> Command {
     if let Some(TokenValue::String(arg)) = values.pop_front() {
         return Command::Get(arg);
+    }
+    Command::Invalid
+}
+
+fn handle_agregate_keys(values: &mut VecDeque<TokenValue>) -> Command {
+    if let Some(TokenValue::String(arg)) = values.pop_front() {
+        return Command::Keys(arg);
     }
     Command::Invalid
 }

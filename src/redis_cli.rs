@@ -138,6 +138,7 @@ impl RedisApp {
             Command::Get(key) => Ok(self.get_command(key)),
             Command::Set(key, value, expires_at) => self.set_command(key, value, expires_at),
             Command::ConfigGet(cfg) => Ok(self.config_get_command(cfg)),
+            Command::Keys(arg) => Ok(self.keys_command(arg)),
             _ => Ok(String::from("INVALID")),
         }
     }
@@ -161,6 +162,14 @@ impl RedisApp {
         }
 
         Self::format_null_bulk_string()
+    }
+
+    fn keys_command(&self, _arg: String) -> String {
+        let mem = self.memory.lock().unwrap();
+
+        let keys: Vec<&String> = mem.keys().collect();
+        let keys_owned: Vec<String> = keys.iter().map(|s| s.to_owned().to_owned()).collect();
+        Self::format_array(keys_owned)
     }
 
     fn format_bulk_string(arg: String) -> String {
