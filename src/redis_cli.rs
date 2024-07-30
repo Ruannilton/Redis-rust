@@ -1,11 +1,10 @@
 use std::{
     collections::HashMap,
-    fmt::format,
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::parser::Command;
+use crate::{parser::Command, rdb_file::RdbFile};
 
 struct EntryValue {
     value: String,
@@ -21,9 +20,29 @@ impl RedisApp {
     pub fn new(args: impl Iterator<Item = String>) -> Self {
         let configurations = Mutex::new(Self::load_configs_from_args(args));
 
-        RedisApp {
+        let mut instance = RedisApp {
             memory: Mutex::new(HashMap::new()),
             configurations,
+        };
+
+        instance.load_from_rdb();
+
+        instance
+    }
+
+    fn load_from_rdb(&mut self) {
+        let config = self.configurations.lock().unwrap();
+
+        let mut path = config.get("dir").unwrap().to_owned();
+        let name = config.get("dbfilename").unwrap();
+        path.push('/');
+        path.push_str(&name);
+        println!("Looking for rdb at: {}", path);
+        match RdbFile::open(path) {
+            Ok(_) => {}
+            Err(err) => {
+                println!("Failed to load rdb: {:?}", err)
+            }
         }
     }
 
