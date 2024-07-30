@@ -162,21 +162,7 @@ impl RdbFile {
             return Err(Box::new(DecodeError));
         }
 
-        {
-            let mut hash_table_header_buffer = [0u8; 1];
-            stream.read_exact(&mut hash_table_header_buffer)?;
-
-            if hash_table_header_buffer[0] == OpCodes::RESIZEDB as u8 {
-                if let SizeEncodedValue::Size(key_table_size) = Self::decode_size(stream)? {
-                    println!("Key Value table size: {}", key_table_size);
-                }
-                if let SizeEncodedValue::Size(exp_table_size) = Self::decode_size(stream)? {
-                    println!("Expires table size: {}", exp_table_size);
-                }
-            } else {
-                println!("Table size not read");
-            }
-        }
+        Self::read_database_table_size(stream)?;
 
         loop {
             let mut data_type_buffer = [0u8; 1];
@@ -309,5 +295,20 @@ impl RdbFile {
             }
             _ => Err(Box::new(DecodeSizeError)),
         }
+    }
+
+    fn read_database_table_size(stream: &mut File) -> Result<(), Box<dyn Error>> {
+        let mut hash_table_header_buffer = [0u8; 1];
+        stream.read_exact(&mut hash_table_header_buffer)?;
+        Ok(if hash_table_header_buffer[0] == OpCodes::RESIZEDB as u8 {
+            if let SizeEncodedValue::Size(key_table_size) = Self::decode_size(stream)? {
+                println!("Key Value table size: {}", key_table_size);
+            }
+            if let SizeEncodedValue::Size(exp_table_size) = Self::decode_size(stream)? {
+                println!("Expires table size: {}", exp_table_size);
+            }
+        } else {
+            println!("Table size not read");
+        })
     }
 }

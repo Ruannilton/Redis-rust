@@ -6,11 +6,13 @@ use std::{
 
 use crate::{parser::Command, rdb_file::RdbFile};
 
+#[derive(Debug)]
 struct EntryValue {
     value: String,
     expires_at: Option<u128>,
 }
 
+#[derive(Debug)]
 pub struct RedisApp {
     memory: Mutex<HashMap<String, EntryValue>>,
     configurations: Mutex<HashMap<String, String>>,
@@ -27,6 +29,8 @@ impl RedisApp {
 
         instance.load_from_rdb();
 
+        println!("Instance initialized: {:?}", instance);
+
         instance
     }
 
@@ -38,8 +42,20 @@ impl RedisApp {
         path.push('/');
         path.push_str(&name);
         println!("Looking for rdb at: {}", path);
+
         match RdbFile::open(path) {
-            Ok(_) => {}
+            Ok(rdb) => {
+                let mut mem = self.memory.lock().unwrap();
+
+                for (key, (value, expires)) in rdb.memory {
+                    let entry = EntryValue {
+                        value,
+                        expires_at: expires,
+                    };
+
+                    _ = mem.insert(key, entry);
+                }
+            }
             Err(err) => {
                 println!("Failed to load rdb: {:?}", err)
             }
