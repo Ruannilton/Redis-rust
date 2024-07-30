@@ -4,11 +4,15 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{parser::Command, rdb_file::RdbFile};
+use crate::{
+    output_parser::{null_resp_string, to_resp_array, to_resp_bulk, to_resp_string},
+    rdb_file::RdbFile,
+    redis_types::{Command, ValueContainer},
+};
 
 #[derive(Debug)]
 struct EntryValue {
-    value: String,
+    value: ValueContainer,
     expires_at: Option<u128>,
 }
 
@@ -53,7 +57,7 @@ impl RedisApp {
 
                     for (key, (value, expires)) in rdb.memory {
                         let entry = EntryValue {
-                            value,
+                            value: ValueContainer::String(value),
                             expires_at: expires,
                         };
 
@@ -102,7 +106,7 @@ impl RedisApp {
     fn set_command(
         &self,
         key: String,
-        value: String,
+        value: ValueContainer,
         expires_at: Option<u128>,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
@@ -118,7 +122,7 @@ impl RedisApp {
         };
 
         _ = mem.insert(key, entry);
-        Ok(Self::format_simple_string(String::from("OK")))
+        Ok(to_resp_string("OK".to_owned()))
     }
 
     fn get_command(&self, key: String) -> String {
@@ -128,14 +132,14 @@ impl RedisApp {
             if let Some(expires_at) = entry.expires_at {
                 let current_time = Self::get_current_time_ms();
                 if current_time < expires_at {
-                    return Self::format_simple_string(entry.value.to_owned());
+                    return entry.value.to_resp_string();
                 }
-                return Self::format_null_bulk_string();
+                return null_resp_string();
             }
-            return Self::format_simple_string(entry.value.to_owned());
+            return entry.value.to_resp_string();
         }
 
-        return Self::format_null_bulk_string();
+        return null_resp_string();
     }
 
     pub fn execute_command(&self, cmd: Command) -> Result<String, Box<dyn std::error::Error>> {
@@ -146,17 +150,17 @@ impl RedisApp {
             Command::Set(key, value, expires_at) => self.set_command(key, value, expires_at),
             Command::ConfigGet(cfg) => Ok(self.config_get_command(cfg)),
             Command::Keys(arg) => Ok(self.keys_command(arg)),
+            Command::Type(tp) => Ok(self.type_command(tp)),
             _ => Ok(String::from("INVALID")),
         }
     }
 
     fn ping_command() -> String {
-        let response = String::from("PONG");
-        Self::format_bulk_string(response)
+        to_resp_bulk("PONG".to_owned())
     }
 
     fn echo_command(arg: String) -> String {
-        Self::format_bulk_string(arg)
+        to_resp_bulk(arg)
     }
 
     fn config_get_command(&self, arg: String) -> String {
@@ -167,10 +171,10 @@ impl RedisApp {
 
         if let Some(value) = config.get(&arg) {
             let values = vec![arg, value.to_owned()];
-            return Self::format_array(values);
+            return to_resp_array(values);
         }
 
-        Self::format_null_bulk_string()
+        null_resp_string()
     }
 
     fn keys_command(&self, _arg: String) -> String {
@@ -178,33 +182,28 @@ impl RedisApp {
 
         let keys: Vec<&String> = mem.keys().collect();
         let keys_owned: Vec<String> = keys.iter().map(|s| s.to_owned().to_owned()).collect();
-        Self::format_array(keys_owned)
+        to_resp_array(keys_owned)
     }
 
-    fn format_bulk_string(arg: String) -> String {
-        let encoded = format!("${}\r\n{}\r\n", arg.len(), arg);
-        encoded
-    }
+    fn type_command(&self, key: String) -> String {
+        let mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
-    fn format_null_bulk_string() -> String {
-        String::from("$-1\r\n")
-    }
+        if let Some(entry) = mem.get(&key) {
+            if let Some(expires_at) = entry.expires_at {
+                let current_time = Self::get_current_time_ms();
+                if current_time < expires_at {
+                    return match entry.value {
+                        ValueContainer::String(_) => to_resp_string("string".to_owned()),
+                    };
+                }
 
-    fn format_simple_string(arg: String) -> String {
-        let encoded = format!("+{}\r\n", arg);
-        encoded
-    }
-
-    fn format_array(values: Vec<String>) -> String {
-        if values.is_empty() {
-            return "*0\r\n".to_owned();
+                return to_resp_string("none".to_owned());
+            }
+            return match entry.value {
+                ValueContainer::String(_) => to_resp_string("string".to_owned()),
+            };
         }
 
-        let mut response = String::from(format!("*{}\r\n", values.len()));
-        for v in values {
-            response.push_str(&format!("${}\r\n{}\r\n", v.len(), v));
-        }
-
-        response
+        return to_resp_string("none".to_owned());
     }
 }

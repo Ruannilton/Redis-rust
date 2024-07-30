@@ -5,7 +5,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{parser, redis_cli::RedisApp};
+use crate::{input_parser, redis_cli::RedisApp};
 pub struct RedisServer {
     listener: TcpListener,
     cli: Arc<RedisApp>,
@@ -55,9 +55,9 @@ impl RedisServer {
                 std::str::from_utf8(payload_buffer.clone().as_slice())?
             );
 
-            let command = parser::desserialize(payload_buffer)?;
+            let command = input_parser::desserialize(payload_buffer)?;
             let result = cli.execute_command(command)?;
-            let response = parser::serialize(result);
+            let response = result.into_bytes();
 
             stream.write(response.as_slice()).await?;
 

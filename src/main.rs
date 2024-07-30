@@ -1,7 +1,9 @@
-mod parser;
-mod redis_cli;
-mod web_api;
+mod input_parser;
+mod output_parser;
 mod rdb_file;
+mod redis_cli;
+mod redis_types;
+mod web_api;
 
 use std::{env, sync::Arc};
 

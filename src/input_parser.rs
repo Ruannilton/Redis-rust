@@ -1,20 +1,22 @@
 use std::collections::{HashMap, VecDeque};
 
+use crate::redis_types::{Command, ValueContainer};
+
 #[derive(PartialEq)]
 enum TokenValue {
     String(String),
     Array(VecDeque<TokenValue>),
 }
 
-#[derive(Debug)]
-pub enum Command {
-    Ping,
-    Echo(String),
-    Invalid,
-    Set(String, String, Option<u128>),
-    Get(String),
-    ConfigGet(String),
-    Keys(String),
+impl Into<ValueContainer> for TokenValue {
+    fn into(self) -> ValueContainer {
+        match self {
+            TokenValue::String(s) => ValueContainer::String(s),
+            TokenValue::Array(_) => {
+                panic!("Conversion from TokenValue::Array to ValueContainer is not supported")
+            }
+        }
+    }
 }
 
 pub fn desserialize(input: Vec<u8>) -> Result<Command, Box<dyn std::error::Error>> {
@@ -22,11 +24,6 @@ pub fn desserialize(input: Vec<u8>) -> Result<Command, Box<dyn std::error::Error
     let input_value = extract_input_values(&mut tokens)?;
     let command = convert_tokens_to_command(input_value);
     Ok(command)
-}
-
-pub fn serialize(input: String) -> Vec<u8> {
-    let bytes = input.into_bytes();
-    bytes
 }
 
 fn split_input(input: Vec<u8>) -> VecDeque<String> {
@@ -137,6 +134,7 @@ fn handle_agregate_command(mut values: VecDeque<TokenValue>) -> Command {
             "SET" => handle_agregate_set(&mut values),
             "CONFIG" => handler_agregate_config(&mut values),
             "KEYS" => handle_agregate_keys(&mut values),
+            "TYPE" => handle_agregate_type(&mut values),
             _ => Command::Invalid,
         }
     } else {
@@ -169,7 +167,7 @@ fn handle_agregate_set(values: &mut VecDeque<TokenValue>) -> Command {
             }
         }
 
-        return Command::Set(key, value, expires_at);
+        return Command::Set(key, ValueContainer::String(value), expires_at);
     }
     Command::Invalid
 }
@@ -229,6 +227,13 @@ fn handler_agregate_config(values: &mut VecDeque<TokenValue>) -> Command {
             }
             _ => Command::Invalid,
         };
+    }
+    Command::Invalid
+}
+
+fn handle_agregate_type(values: &mut VecDeque<TokenValue>) -> Command {
+    if let Some(TokenValue::String(arg)) = values.pop_front() {
+        return Command::Type(arg);
     }
     Command::Invalid
 }
