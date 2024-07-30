@@ -173,14 +173,14 @@ impl RdbFile {
                 let mut expiration_ms_buffer = [0u8; 8];
                 stream.read_exact(&mut expiration_ms_buffer)?;
 
-                let exp = u64::from_be_bytes(expiration_ms_buffer) as u128;
+                let exp = u64::from_le_bytes(expiration_ms_buffer) as u128;
                 expiration = Some(exp);
                 stream.read_exact(&mut data_type_buffer)?;
             } else if data_type_buffer[0] == OpCodes::EXPIRETIME as u8 {
                 let mut expiration_buffer = [0u8; 4];
                 stream.read_exact(&mut expiration_buffer)?;
 
-                let exp = (u32::from_be_bytes(expiration_buffer) as u128) * 1000;
+                let exp = (u32::from_le_bytes(expiration_buffer) as u128) * 1000;
                 expiration = Some(exp);
                 stream.read_exact(&mut data_type_buffer)?;
             }
