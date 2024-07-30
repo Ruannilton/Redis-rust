@@ -40,33 +40,32 @@ impl RedisApp {
             .lock()
             .expect("Failed to lock configurations hashmap");
 
-        let mut path = config
-            .get("dir")
-            .expect("Failed to get --dir config")
-            .to_owned();
-        let name = config
-            .get("dbfilename")
-            .expect("Failed to get --dbfilename config");
-        path.push('/');
-        path.push_str(&name);
-        println!("Looking for rdb at: {}", path);
+        if let (Some(path), Some(name)) = (config.get("dir"), config.get("dbfilename")) {
+            let mut path = path.to_owned();
 
-        match RdbFile::open(path) {
-            Ok(rdb) => {
-                let mut mem = self.memory.lock().expect("Failed to unlock memory hashmap");
+            path.push('/');
+            path.push_str(&name);
+            println!("Looking for rdb at: {}", path);
 
-                for (key, (value, expires)) in rdb.memory {
-                    let entry = EntryValue {
-                        value,
-                        expires_at: expires,
-                    };
+            match RdbFile::open(path) {
+                Ok(rdb) => {
+                    let mut mem = self.memory.lock().expect("Failed to unlock memory hashmap");
 
-                    _ = mem.insert(key, entry);
+                    for (key, (value, expires)) in rdb.memory {
+                        let entry = EntryValue {
+                            value,
+                            expires_at: expires,
+                        };
+
+                        _ = mem.insert(key, entry);
+                    }
+                }
+                Err(err) => {
+                    println!("Failed to load rdb: {:?}", err)
                 }
             }
-            Err(err) => {
-                println!("Failed to load rdb: {:?}", err)
-            }
+        } else {
+            println!("RDB file path not provided");
         }
     }
 
