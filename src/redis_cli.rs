@@ -35,17 +35,25 @@ impl RedisApp {
     }
 
     fn load_from_rdb(&mut self) {
-        let config = self.configurations.lock().unwrap();
+        let config = self
+            .configurations
+            .lock()
+            .expect("Failed to lock configurations hashmap");
 
-        let mut path = config.get("dir").unwrap().to_owned();
-        let name = config.get("dbfilename").unwrap();
+        let mut path = config
+            .get("dir")
+            .expect("Failed to get --dir config")
+            .to_owned();
+        let name = config
+            .get("dbfilename")
+            .expect("Failed to get --dbfilename config");
         path.push('/');
         path.push_str(&name);
         println!("Looking for rdb at: {}", path);
 
         match RdbFile::open(path) {
             Ok(rdb) => {
-                let mut mem = self.memory.lock().unwrap();
+                let mut mem = self.memory.lock().expect("Failed to unlock memory hashmap");
 
                 for (key, (value, expires)) in rdb.memory {
                     let entry = EntryValue {
@@ -98,7 +106,7 @@ impl RedisApp {
         value: String,
         expires_at: Option<u128>,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut mem = self.memory.lock().unwrap();
+        let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         let expires: Option<u128> = match expires_at {
             Some(ex) => Some(Self::get_current_time_ms() + ex),
@@ -115,7 +123,7 @@ impl RedisApp {
     }
 
     fn get_command(&self, key: String) -> String {
-        let mem = self.memory.lock().unwrap();
+        let mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         if let Some(entry) = mem.get(&key) {
             if let Some(expires_at) = entry.expires_at {
@@ -153,8 +161,10 @@ impl RedisApp {
     }
 
     fn config_get_command(&self, arg: String) -> String {
-        let config: std::sync::MutexGuard<HashMap<String, String>> =
-            self.configurations.lock().unwrap();
+        let config: std::sync::MutexGuard<HashMap<String, String>> = self
+            .configurations
+            .lock()
+            .expect("Failed to lock configurations hashmap");
 
         if let Some(value) = config.get(&arg) {
             let values = vec![arg, value.to_owned()];
@@ -165,7 +175,7 @@ impl RedisApp {
     }
 
     fn keys_command(&self, _arg: String) -> String {
-        let mem = self.memory.lock().unwrap();
+        let mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         let keys: Vec<&String> = mem.keys().collect();
         let keys_owned: Vec<String> = keys.iter().map(|s| s.to_owned().to_owned()).collect();
