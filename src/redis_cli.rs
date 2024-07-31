@@ -7,13 +7,34 @@ use std::{
 use crate::{
     output_parser::{null_resp_string, to_resp_array, to_resp_bulk, to_resp_string},
     rdb_file::RdbFile,
-    redis_types::{Command, ValueContainer},
+    redis_types::{Command, StreamEntry, ValueContainer},
 };
 
 #[derive(Debug)]
 struct EntryValue {
     value: ValueContainer,
     expires_at: Option<u128>,
+}
+
+impl EntryValue {
+    pub fn get_value(&self) -> Option<ValueContainer> {
+        if let Some(exp) = self.expires_at {
+            let current_time = get_current_time_ms();
+            if current_time < exp {
+                return Some(self.value.clone());
+            }
+            return None;
+        }
+        return Some(self.value.clone());
+    }
+}
+
+fn get_current_time_ms() -> u128 {
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    since_the_epoch.as_millis()
 }
 
 #[derive(Debug)]
@@ -95,14 +116,6 @@ impl RedisApp {
         configs
     }
 
-    fn get_current_time_ms() -> u128 {
-        let start = SystemTime::now();
-        let since_the_epoch = start
-            .duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
-        since_the_epoch.as_millis()
-    }
-
     fn set_command(
         &self,
         key: String,
@@ -112,7 +125,7 @@ impl RedisApp {
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         let expires: Option<u128> = match expires_at {
-            Some(ex) => Some(Self::get_current_time_ms() + ex),
+            Some(ex) => Some(get_current_time_ms() + ex),
             None => None,
         };
 
@@ -129,14 +142,9 @@ impl RedisApp {
         let mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         if let Some(entry) = mem.get(&key) {
-            if let Some(expires_at) = entry.expires_at {
-                let current_time = Self::get_current_time_ms();
-                if current_time < expires_at {
-                    return entry.value.to_resp_string();
-                }
-                return null_resp_string();
+            if let Some(value) = entry.get_value() {
+                return value.to_resp_string();
             }
-            return entry.value.to_resp_string();
         }
 
         return null_resp_string();
@@ -151,6 +159,7 @@ impl RedisApp {
             Command::ConfigGet(cfg) => Ok(self.config_get_command(cfg)),
             Command::Keys(arg) => Ok(self.keys_command(arg)),
             Command::Type(tp) => Ok(self.type_command(tp)),
+            Command::XAdd(key, id, fields) => Ok(self.xadd_command(key, id, fields)),
             _ => Ok(String::from("INVALID")),
         }
     }
@@ -189,21 +198,38 @@ impl RedisApp {
         let mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         if let Some(entry) = mem.get(&key) {
-            if let Some(expires_at) = entry.expires_at {
-                let current_time = Self::get_current_time_ms();
-                if current_time < expires_at {
-                    return match entry.value {
-                        ValueContainer::String(_) => to_resp_string("string".to_owned()),
-                    };
-                }
-
-                return to_resp_string("none".to_owned());
+            if let Some(value) = entry.get_value() {
+                return match value {
+                    ValueContainer::Stream(..) => to_resp_string("stream".to_owned()),
+                    ValueContainer::String(_) => to_resp_string("string".to_owned()),
+                };
             }
-            return match entry.value {
-                ValueContainer::String(_) => to_resp_string("string".to_owned()),
-            };
         }
 
         return to_resp_string("none".to_owned());
+    }
+
+    fn xadd_command(&self, key: String, id: String, fields: Vec<(String, String)>) -> String {
+        let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
+        let new_entry = StreamEntry {
+            id: id.clone(),
+            fields,
+        };
+        if let Some(entry) = mem.get_mut(&key) {
+            if let ValueContainer::Stream(ref mut stream) = entry.value {
+                stream.push(new_entry);
+                return id;
+            }
+        }
+
+        mem.insert(
+            key,
+            EntryValue {
+                expires_at: None,
+                value: ValueContainer::Stream(vec![new_entry]),
+            },
+        );
+
+        return id;
     }
 }

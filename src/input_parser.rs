@@ -135,6 +135,7 @@ fn handle_agregate_command(mut values: VecDeque<TokenValue>) -> Command {
             "CONFIG" => handler_agregate_config(&mut values),
             "KEYS" => handle_agregate_keys(&mut values),
             "TYPE" => handle_agregate_type(&mut values),
+            "XADD" => handle_agregate_xadd(&mut values),
             _ => Command::Invalid,
         }
     } else {
@@ -235,5 +236,23 @@ fn handle_agregate_type(values: &mut VecDeque<TokenValue>) -> Command {
     if let Some(TokenValue::String(arg)) = values.pop_front() {
         return Command::Type(arg);
     }
+    Command::Invalid
+}
+
+fn handle_agregate_xadd(values: &mut VecDeque<TokenValue>) -> Command {
+    if let (Some(TokenValue::String(stream_id)), Some(TokenValue::String(entry_id))) =
+        (values.pop_front(), values.pop_front())
+    {
+        let mut fields = Vec::new();
+
+        while let (Some(TokenValue::String(key)), Some(TokenValue::String(value))) =
+            (values.pop_front(), values.pop_front())
+        {
+            fields.push((key, value));
+        }
+
+        return Command::XAdd(stream_id, entry_id, fields);
+    }
+
     Command::Invalid
 }
