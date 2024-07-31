@@ -230,6 +230,6 @@ impl RedisApp {
             },
         );
 
-        return id;
+        return to_resp_bulk(id);
     }
 }
