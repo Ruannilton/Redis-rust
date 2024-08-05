@@ -39,7 +39,11 @@ fn handle_simple_command(token: &String) -> Result<Command, Box<dyn std::error::
 
 fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<Command, Box<dyn std::error::Error>> {
     let mut it = token.iter();
-
+    if token.len() == 1 {
+        if let Some(RespToken::String(command)) = it.next() {
+            return handle_simple_command(command);
+        }
+    }
     if let Some(RespToken::String(command)) = it.next() {
         return match command.to_uppercase().as_str() {
             "ECHO" => build_echo_command(&mut it),
