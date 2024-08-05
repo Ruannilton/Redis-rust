@@ -219,7 +219,7 @@ impl RedisApp {
         if let Some(entry) = mem.get_mut(&key) {
             if let ValueContainer::Stream(ref mut stream) = entry.value {
                 stream.push(new_entry);
-                return id;
+                return to_resp_bulk(id);
             }
         }
 
