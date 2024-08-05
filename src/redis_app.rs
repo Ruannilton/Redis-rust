@@ -220,16 +220,20 @@ impl RedisApp {
                     if last_entry.id < new_entry.id {
                         stream.push(new_entry);
                         return Ok(to_resp_bulk(id));
+                    } else {
+                        return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
                     }
                 } else {
                     let min_id = StreamKey::new(0, 1);
                     if min_id < new_entry.id {
                         stream.push(new_entry);
                         return Ok(to_resp_bulk(id));
+                    } else {
+                        return Ok(to_err_string(
+                            "ERR The ID specified in XADD must be greater than 0-0".to_owned(),
+                        ));
                     }
                 }
-
-                return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
             }
         }
 
