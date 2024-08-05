@@ -1,9 +1,15 @@
+use std::fmt::format;
+
 pub fn to_resp_string(input: String) -> String {
     format!("+{}\r\n", input)
 }
 
 pub fn to_resp_bulk(input: String) -> String {
     format!("${}\r\n{}\r\n", input.len(), input)
+}
+
+pub fn to_err_string(input: String) -> String {
+    format!("-{}\r\n", input)
 }
 
 pub fn to_resp_array(inputs: Vec<String>) -> String {

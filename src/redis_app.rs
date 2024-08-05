@@ -1,13 +1,10 @@
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{collections::HashMap, error::Error, sync::Mutex};
 
 use crate::{
-    output_parser::{null_resp_string, to_resp_array, to_resp_bulk, to_resp_string},
+    output_parser::{null_resp_string, to_err_string, to_resp_array, to_resp_bulk, to_resp_string},
     rdb_file::RdbFile,
-    redis_types::{Command, StreamEntry, ValueContainer},
+    redis_types::{Command, StreamEntry, StreamKey, ValueContainer},
+    utils,
 };
 
 #[derive(Debug)]
@@ -19,7 +16,7 @@ struct EntryValue {
 impl EntryValue {
     pub fn get_value(&self) -> Option<ValueContainer> {
         if let Some(exp) = self.expires_at {
-            let current_time = get_current_time_ms();
+            let current_time = utils::get_current_time_ms();
             if current_time < exp {
                 return Some(self.value.clone());
             }
@@ -27,14 +24,6 @@ impl EntryValue {
         }
         return Some(self.value.clone());
     }
-}
-
-fn get_current_time_ms() -> u128 {
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    since_the_epoch.as_millis()
 }
 
 #[derive(Debug)]
@@ -125,7 +114,7 @@ impl RedisApp {
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         let expires: Option<u128> = match expires_at {
-            Some(ex) => Some(get_current_time_ms() + ex),
+            Some(ex) => Some(utils::get_current_time_ms() + ex),
             None => None,
         };
 
@@ -159,7 +148,7 @@ impl RedisApp {
             Command::ConfigGet(cfg) => Ok(self.config_get_command(cfg)),
             Command::Keys(arg) => Ok(self.keys_command(arg)),
             Command::Type(tp) => Ok(self.type_command(tp)),
-            Command::XAdd(key, id, fields) => Ok(self.xadd_command(key, id, fields)),
+            Command::XAdd(key, id, fields) => self.xadd_command(key, id, fields),
         }
     }
 
@@ -210,16 +199,37 @@ impl RedisApp {
         return to_resp_string("none".to_owned());
     }
 
-    fn xadd_command(&self, key: String, id: String, fields: Vec<(String, String)>) -> String {
+    fn xadd_command(
+        &self,
+        key: String,
+        id: String,
+        fields: Vec<(String, String)>,
+    ) -> Result<String, Box<dyn Error>> {
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
+
+        let stream_key = StreamKey::from_string(&id)?;
+
         let new_entry = StreamEntry {
-            id: id.clone(),
+            id: stream_key,
             fields,
         };
+
         if let Some(entry) = mem.get_mut(&key) {
             if let ValueContainer::Stream(ref mut stream) = entry.value {
-                stream.push(new_entry);
-                return to_resp_bulk(id);
+                if let Some(last_entry) = stream.last() {
+                    if last_entry.id < new_entry.id {
+                        stream.push(new_entry);
+                        return Ok(to_resp_bulk(key));
+                    }
+                } else {
+                    let min_id = StreamKey::new(0, 1);
+                    if min_id < new_entry.id {
+                        stream.push(new_entry);
+                        return Ok(to_resp_bulk(id));
+                    }
+                }
+
+                return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
             }
         }
 
@@ -231,6 +241,6 @@ impl RedisApp {
             },
         );
 
-        return to_resp_bulk(id);
+        return Ok(to_resp_bulk(id));
     }
 }

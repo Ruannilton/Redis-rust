@@ -7,6 +7,7 @@ mod resp_desserializer;
 mod resp_desserializer_error;
 mod resp_invalid_command_error;
 mod resp_type;
+mod utils;
 mod web_api;
 use redis_app::RedisApp;
 use resp_desserializer::RespDesserializer;
