@@ -132,7 +132,7 @@ impl RedisApp {
 
         if let Some(entry) = mem.get(&key) {
             if let Some(value) = entry.get_value() {
-                return value.into();
+                return to_resp_string(value.into());
             }
         }
 
