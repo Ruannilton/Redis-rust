@@ -205,6 +205,12 @@ impl RedisApp {
         id: String,
         fields: Vec<(String, String)>,
     ) -> Result<String, Box<dyn Error>> {
+        if id.as_str() == "0-0" {
+            return Ok(to_err_string(
+                "ERR The ID specified in XADD must be greater than 0-0".to_owned(),
+            ));
+        }
+
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         let stream_key = StreamKey::from_string(&id)?;
@@ -220,20 +226,16 @@ impl RedisApp {
                     if last_entry.id < new_entry.id {
                         stream.push(new_entry);
                         return Ok(to_resp_bulk(id));
-                    } else {
-                        return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
                     }
                 } else {
                     let min_id = StreamKey::new(0, 1);
                     if min_id < new_entry.id {
                         stream.push(new_entry);
                         return Ok(to_resp_bulk(id));
-                    } else {
-                        return Ok(to_err_string(
-                            "ERR The ID specified in XADD must be greater than 0-0".to_owned(),
-                        ));
                     }
                 }
+
+                return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
             }
         }
 
