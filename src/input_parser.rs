@@ -145,7 +145,7 @@ fn handle_agregate_command(mut values: VecDeque<TokenValue>) -> Command {
 
 fn handle_agregate_echo(values: &mut VecDeque<TokenValue>) -> Command {
     if let Some(TokenValue::String(arg)) = values.pop_front() {
-        return Command::Echo(arg);
+        return Command::Echo(ValueContainer::String(arg));
     }
     Command::Invalid
 }

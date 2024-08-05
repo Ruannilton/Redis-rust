@@ -5,10 +5,10 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{input_parser, redis_cli::RedisApp};
+use crate::{redis_app::RedisApp, redis_parser, resp_desserializer::RespDesserializer};
 pub struct RedisServer {
     listener: TcpListener,
-    cli: Arc<RedisApp>,
+    app: Arc<RedisApp>,
 }
 
 impl RedisServer {
@@ -17,14 +17,14 @@ impl RedisServer {
 
         Ok(RedisServer {
             listener,
-            cli: redis_instance,
+            app: redis_instance,
         })
     }
 
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             if let Ok((stream, _)) = self.listener.accept().await {
-                let cli = Arc::clone(&self.cli);
+                let cli = Arc::clone(&self.app);
                 tokio::spawn(async move {
                     match Self::handle_request(cli, stream).await {
                         Ok(_) => {}
@@ -55,16 +55,21 @@ impl RedisServer {
                 std::str::from_utf8(payload_buffer.clone().as_slice())?
             );
 
-            let command = input_parser::desserialize(payload_buffer)?;
-            let result = cli.execute_command(command)?;
-            let response = result.into_bytes();
+            let tokens = RespDesserializer::desserialize(payload_buffer.as_slice())?;
+            let mut tokens_iter = tokens.iter().peekable();
+            let commands = redis_parser::parse_token_int_command(&mut tokens_iter)?;
 
-            stream.write(response.as_slice()).await?;
+            for command in commands {
+                let result = cli.execute_command(command)?;
+                let response = result.into_bytes();
 
-            println!(
-                "Returned: {:?}",
-                std::str::from_utf8(response.clone().as_slice())?
-            );
+                stream.write(response.as_slice()).await?;
+
+                println!(
+                    "Returned: {:?}",
+                    std::str::from_utf8(response.clone().as_slice())?
+                );
+            }
         }
         Ok(())
     }

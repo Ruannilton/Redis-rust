@@ -143,7 +143,7 @@ impl RedisApp {
 
         if let Some(entry) = mem.get(&key) {
             if let Some(value) = entry.get_value() {
-                return value.to_resp_string();
+                return value.into();
             }
         }
 
@@ -160,7 +160,6 @@ impl RedisApp {
             Command::Keys(arg) => Ok(self.keys_command(arg)),
             Command::Type(tp) => Ok(self.type_command(tp)),
             Command::XAdd(key, id, fields) => Ok(self.xadd_command(key, id, fields)),
-            _ => Ok(String::from("INVALID")),
         }
     }
 
@@ -168,8 +167,8 @@ impl RedisApp {
         to_resp_bulk("PONG".to_owned())
     }
 
-    fn echo_command(arg: String) -> String {
-        to_resp_bulk(arg)
+    fn echo_command(arg: ValueContainer) -> String {
+        to_resp_bulk(arg.into())
     }
 
     fn config_get_command(&self, arg: String) -> String {
@@ -202,6 +201,8 @@ impl RedisApp {
                 return match value {
                     ValueContainer::Stream(..) => to_resp_string("stream".to_owned()),
                     ValueContainer::String(_) => to_resp_string("string".to_owned()),
+                    ValueContainer::Array(..) => to_resp_string("list".to_owned()),
+                    ValueContainer::Integer(_) => to_resp_string("integer".to_owned()),
                 };
             }
         }
