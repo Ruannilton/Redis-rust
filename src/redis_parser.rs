@@ -174,16 +174,19 @@ fn search_optional_args(
 
     while let Some(possible_arg) = it.peek() {
         if let RespToken::String(arg_name) = possible_arg {
-            if let Some(&has_value) = valid_args.get(arg_name.as_str()) {
+            let name = arg_name.to_uppercase();
+            if let Some(&has_value) = valid_args.get(name.as_str()) {
                 if has_value {
+                    _ = it.next();
                     if let Some(val) = it.next() {
                         let v: ValueContainer = val.into();
-                        map.insert(arg_name.to_owned(), Some(v));
+                        map.insert(name.to_owned(), Some(v));
                     } else {
                         break;
                     }
                 } else {
-                    map.insert(arg_name.to_owned(), None);
+                    map.insert(name.to_owned(), None);
+                    _ = it.next();
                 }
             }
         } else {
