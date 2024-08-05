@@ -67,6 +67,8 @@ fn desserialize_bulk_string(it: &mut Peekable<Iter<u8>>) -> Result<RespToken, Bo
     _ = it.next();
     let str_len = read_lenght(it)?;
     let str_bytes = read_n_bytes(it, str_len)?;
+    _ = it.next();
+    _ = it.next();
     let str = String::from_utf8(str_bytes)?;
     Ok(RespToken::String(str))
 }

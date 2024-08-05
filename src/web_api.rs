@@ -41,21 +41,18 @@ impl RedisServer {
     ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             let mut buffer = [0; 1024]; // Um buffer de tamanho fixo para leitura
-            let mut payload_buffer = Vec::new();
+
             let readed = stream.read(&mut buffer).await?;
 
             if readed == 0 {
                 break;
             }
 
-            payload_buffer.extend_from_slice(&buffer[..readed]);
+            let readed_buffer = &buffer[..readed];
 
-            println!(
-                "Received: {:?}",
-                std::str::from_utf8(payload_buffer.clone().as_slice())?
-            );
+            println!("Received: {:?}", std::str::from_utf8(readed_buffer)?);
 
-            let tokens = RespDesserializer::desserialize(payload_buffer.as_slice())?;
+            let tokens = RespDesserializer::desserialize(readed_buffer)?;
             let mut tokens_iter = tokens.iter().peekable();
             let commands = redis_parser::parse_token_int_command(&mut tokens_iter)?;
 

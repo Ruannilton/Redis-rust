@@ -12,7 +12,7 @@ pub fn parse_token_int_command(
 ) -> Result<Vec<Command>, Box<dyn std::error::Error>> {
     let mut commands = Vec::new();
 
-    while let Some(token) = it.peek() {
+    while let Some(token) = it.next() {
         let cmd = match token {
             RespToken::Array(arr) => handle_aggregate_command(arr)?,
             RespToken::String(cmd) => handle_simple_command(cmd)?,
