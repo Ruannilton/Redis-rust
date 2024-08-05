@@ -1,4 +1,3 @@
-mod input_parser;
 mod output_parser;
 mod rdb_file;
 mod redis_app;

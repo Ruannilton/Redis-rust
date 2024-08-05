@@ -18,17 +18,6 @@ pub struct StreamEntry {
     pub fields: Vec<(String, String)>,
 }
 
-pub struct ArgDescription<'a> {
-    pub name: &'a str,
-    pub has_value: bool,
-}
-
-impl<'a> ArgDescription<'a> {
-    pub fn new(name: &'a str, has_value: bool) -> Self {
-        Self { name, has_value }
-    }
-}
-
 impl Into<String> for &StreamEntry {
     fn into(self) -> String {
         let fields = self

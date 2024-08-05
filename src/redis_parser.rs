@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error, iter::Peekable, slice::Iter};
 
 use crate::{
-    redis_types::{ArgDescription, Command, ValueContainer},
+    redis_types::{Command, ValueContainer},
     resp_desserializer_error::RespDesserializerError,
     resp_invalid_command_error::RespInvalidCommandError,
     resp_type::RespToken,
