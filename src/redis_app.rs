@@ -219,7 +219,7 @@ impl RedisApp {
                 if let Some(last_entry) = stream.last() {
                     if last_entry.id < new_entry.id {
                         stream.push(new_entry);
-                        return Ok(to_resp_bulk(key));
+                        return Ok(to_resp_bulk(id));
                     }
                 } else {
                     let min_id = StreamKey::new(0, 1);
