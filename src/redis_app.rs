@@ -217,7 +217,7 @@ impl RedisApp {
         let stream_key = StreamKey::from_string(&id, &last_key)?;
 
         if let Some(last) = last_key {
-            if stream_key < last {
+            if stream_key <= last {
                 return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
             }
         }
