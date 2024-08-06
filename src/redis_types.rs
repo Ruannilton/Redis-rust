@@ -167,7 +167,8 @@ impl StreamKey {
                     return Ok(key.inc_sequence());
                 }
             }
-            return Ok(StreamKey::new(time_u128, 0));
+            let new_seq = if time_u128 == 0 { 1 } else { 0 };
+            return Ok(StreamKey::new(time_u128, new_seq));
         }
 
         let sequence_u32 = u32::from_str_radix(sequence, 10)?;
