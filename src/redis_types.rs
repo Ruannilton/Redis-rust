@@ -141,19 +141,43 @@ impl StreamKey {
         }
     }
 
-    pub fn from_string(key: &String) -> Result<Self, Box<dyn std::error::Error>> {
-        let parts: Vec<&str> = key.split('-').collect();
-        if let (Some(&time), Some(&seq)) = (parts.first(), parts.last()) {
-            let time_u128 = u128::from_str_radix(time, 10)?;
-            let sequence = u32::from_str_radix(seq, 10)?;
-            Ok(Self {
-                miliseconds_time: time_u128,
-                sequence_number: sequence,
-            })
-        } else {
-            Err(Box::new(StreamKeyDesserializerError::new(
-                "Falha ao converter valor em stream key",
-            )))
+    pub fn from_string(
+        key: &String,
+        last_key: &Option<StreamKey>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        if key == "*" {
+            return Ok(Self::from_now(0));
+        }
+
+        let splited: Vec<&str> = key.split('-').collect();
+
+        let time = splited
+            .get(0)
+            .ok_or(StreamKeyDesserializerError::new("Id inválido"))?;
+
+        let sequence = splited
+            .get(1)
+            .ok_or(StreamKeyDesserializerError::new("Id inválido"))?;
+
+        let time_u128 = u128::from_str_radix(time, 10)?;
+
+        if *sequence == "*" {
+            if let Some(key) = last_key {
+                if key.miliseconds_time == time_u128 {
+                    return Ok(key.inc_sequence());
+                }
+            }
+            return Ok(StreamKey::new(time_u128, 0));
+        }
+
+        let sequence_u32 = u32::from_str_radix(sequence, 10)?;
+        Ok(StreamKey::new(time_u128, sequence_u32))
+    }
+
+    fn inc_sequence(&self) -> Self {
+        Self {
+            miliseconds_time: self.miliseconds_time,
+            sequence_number: self.sequence_number + 1,
         }
     }
 }
@@ -174,9 +198,9 @@ impl PartialOrd for StreamKey {
         let cmp = match cmp {
             (Ordering::Greater, _) => Some(Ordering::Greater),
             (Ordering::Less, _) => Some(Ordering::Less),
-            (_, Ordering::Greater) => Some(Ordering::Greater),
-            (_, Ordering::Less) => Some(Ordering::Less),
-            (_, _) => Some(Ordering::Equal),
+            (Ordering::Equal, Ordering::Less) => Some(Ordering::Less),
+            (Ordering::Equal, Ordering::Greater) => Some(Ordering::Greater),
+            (Ordering::Equal, Ordering::Equal) => Some(Ordering::Equal),
         };
 
         cmp

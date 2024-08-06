@@ -213,29 +213,24 @@ impl RedisApp {
 
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
-        let stream_key = StreamKey::from_string(&id)?;
+        let last_key = self.get_last_stream_key(&key, &mem);
+        let stream_key = StreamKey::from_string(&id, &last_key)?;
+
+        if let Some(last) = last_key {
+            if stream_key < last {
+                return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
+            }
+        }
 
         let new_entry = StreamEntry {
-            id: stream_key,
+            id: stream_key.clone(),
             fields,
         };
 
         if let Some(entry) = mem.get_mut(&key) {
             if let ValueContainer::Stream(ref mut stream) = entry.value {
-                if let Some(last_entry) = stream.last() {
-                    if last_entry.id < new_entry.id {
-                        stream.push(new_entry);
-                        return Ok(to_resp_bulk(id));
-                    }
-                } else {
-                    let min_id = StreamKey::new(0, 1);
-                    if min_id < new_entry.id {
-                        stream.push(new_entry);
-                        return Ok(to_resp_bulk(id));
-                    }
-                }
-
-                return Ok(to_err_string(String::from("ERR The ID specified in XADD is equal or smaller than the target stream top item")));
+                stream.push(new_entry);
+                return Ok(to_resp_bulk(stream_key.into()));
             }
         }
 
@@ -247,6 +242,21 @@ impl RedisApp {
             },
         );
 
-        return Ok(to_resp_bulk(id));
+        return Ok(to_resp_bulk(stream_key.into()));
+    }
+
+    fn get_last_stream_key(
+        &self,
+        stream_id: &str,
+        mem: &std::sync::MutexGuard<HashMap<String, EntryValue>>,
+    ) -> Option<StreamKey> {
+        let entry = mem.get(stream_id)?;
+
+        if let ValueContainer::Stream(stream) = &entry.value {
+            let last = stream.last()?;
+            Some(last.id.clone())
+        } else {
+            None
+        }
     }
 }
