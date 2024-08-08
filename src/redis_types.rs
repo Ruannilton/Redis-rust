@@ -1,6 +1,10 @@
-use std::{cmp::Ordering, error::Error, fmt};
+use std::{cmp::Ordering, error::Error, fmt, u128, u64};
 
-use crate::{resp_type::RespToken, utils};
+use crate::{
+    resp_serializer::{to_resp_array, to_resp_bulk, RespSerializer},
+    resp_type::RespToken,
+    utils,
+};
 
 #[derive(Debug)]
 pub enum Command {
@@ -12,6 +16,7 @@ pub enum Command {
     Keys(String),
     Type(String),
     XAdd(String, String, Vec<(String, String)>),
+    XRange(String, String, String),
 }
 
 #[derive(Debug, Clone)]
@@ -30,6 +35,20 @@ impl Into<String> for &StreamEntry {
             .join(", ");
         let id_str: String = self.id.clone().into();
         format!("{{{} [{}]}}", id_str, fields)
+    }
+}
+
+impl RespSerializer for StreamEntry {
+    fn to_resp(&self) -> String {
+        let fields_array: Vec<String> = self
+            .fields
+            .iter()
+            .map(|x| [x.0.clone(), x.1.clone()])
+            .flatten()
+            .collect();
+        let fields_resp = to_resp_array(fields_array);
+        let id_resp = to_resp_bulk(self.id.into());
+        format!("*2\r\n{id_resp}{fields_resp}")
     }
 }
 
@@ -113,10 +132,10 @@ impl fmt::Display for StreamKeyDesserializerError {
 
 impl Error for StreamKeyDesserializerError {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct StreamKey {
     pub miliseconds_time: u128,
-    pub sequence_number: u32,
+    pub sequence_number: u64,
 }
 
 impl Into<String> for StreamKey {
@@ -126,14 +145,14 @@ impl Into<String> for StreamKey {
 }
 
 impl StreamKey {
-    pub fn new(miliseconds_time: u128, sequence_number: u32) -> Self {
+    pub fn new(miliseconds_time: u128, sequence_number: u64) -> Self {
         Self {
             miliseconds_time,
             sequence_number,
         }
     }
 
-    pub fn from_now(sequence_number: u32) -> Self {
+    pub fn from_now(sequence_number: u64) -> Self {
         let ms = utils::get_current_time_ms();
         Self {
             miliseconds_time: ms,
@@ -144,7 +163,14 @@ impl StreamKey {
     pub fn from_string(
         key: &String,
         last_key: &Option<StreamKey>,
+        sequence: Option<u64>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        if key == "-" {
+            return Ok(Self::new(0, 1));
+        }
+        if key == "+" {
+            return Ok(Self::new(u128::MAX, u64::MAX));
+        }
         if key == "*" {
             return Ok(Self::from_now(0));
         }
@@ -155,24 +181,36 @@ impl StreamKey {
             .get(0)
             .ok_or(StreamKeyDesserializerError::new("Id inválido"))?;
 
-        let sequence = splited
-            .get(1)
-            .ok_or(StreamKeyDesserializerError::new("Id inválido"))?;
-
         let time_u128 = u128::from_str_radix(time, 10)?;
 
-        if *sequence == "*" {
-            if let Some(key) = last_key {
-                if key.miliseconds_time == time_u128 {
-                    return Ok(key.inc_sequence());
+        let sequence = if let Some(sequence) = splited.get(1) {
+            if *sequence == "*" {
+                if let Some(key) = last_key {
+                    if key.miliseconds_time == time_u128 {
+                        return Ok(key.inc_sequence());
+                    }
                 }
+                let new_seq = if time_u128 == 0 { 1 } else { 0 };
+                return Ok(StreamKey::new(time_u128, new_seq));
             }
-            let new_seq = if time_u128 == 0 { 1 } else { 0 };
-            return Ok(StreamKey::new(time_u128, new_seq));
-        }
 
-        let sequence_u32 = u32::from_str_radix(sequence, 10)?;
-        Ok(StreamKey::new(time_u128, sequence_u32))
+            u64::from_str_radix(sequence, 10)?
+        } else {
+            sequence.ok_or(StreamKeyDesserializerError::new("Id inválido"))?
+        };
+
+        Ok(StreamKey::new(time_u128, sequence))
+    }
+
+    pub fn from_time_string(
+        time: &String,
+        sequence: u64,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let time_u128 = u128::from_str_radix(time, 10)?;
+        Ok(Self {
+            miliseconds_time: time_u128,
+            sequence_number: sequence,
+        })
     }
 
     fn inc_sequence(&self) -> Self {

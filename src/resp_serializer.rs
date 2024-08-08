@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 pub fn to_resp_string(input: String) -> String {
     format!("+{}\r\n", input)
 }
@@ -22,4 +20,16 @@ pub fn to_resp_array(inputs: Vec<String>) -> String {
 
 pub fn null_resp_string() -> String {
     String::from("$-1\r\n")
+}
+
+pub fn slc_objects_to_resp(objs: &[impl RespSerializer]) -> String {
+    let mut result = format!("*{}\r\n", objs.len());
+    for obj in objs {
+        result.push_str(obj.to_resp().as_str());
+    }
+    result
+}
+
+pub trait RespSerializer {
+    fn to_resp(&self) -> String;
 }

@@ -1,9 +1,11 @@
-use std::{collections::HashMap, error::Error, sync::Mutex};
+use std::{collections::HashMap, error::Error, sync::Mutex, u64};
 
 use crate::{
-    output_parser::{null_resp_string, to_err_string, to_resp_array, to_resp_bulk, to_resp_string},
     rdb_file::RdbFile,
     redis_types::{Command, StreamEntry, StreamKey, ValueContainer},
+    resp_serializer::{
+        self, null_resp_string, to_err_string, to_resp_array, to_resp_bulk, to_resp_string,
+    },
     utils,
 };
 
@@ -149,6 +151,7 @@ impl RedisApp {
             Command::Keys(arg) => Ok(self.keys_command(arg)),
             Command::Type(tp) => Ok(self.type_command(tp)),
             Command::XAdd(key, id, fields) => self.xadd_command(key, id, fields),
+            Command::XRange(key, start, end) => self.xrange_command(key, start, end),
         }
     }
 
@@ -214,7 +217,7 @@ impl RedisApp {
         let mut mem = self.memory.lock().expect("Failed to lock memory hashmap");
 
         let last_key = self.get_last_stream_key(&key, &mem);
-        let stream_key = StreamKey::from_string(&id, &last_key)?;
+        let stream_key = StreamKey::from_string(&id, &last_key, None)?;
 
         if let Some(last) = last_key {
             if stream_key <= last {
@@ -258,5 +261,42 @@ impl RedisApp {
         } else {
             None
         }
+    }
+
+    fn xrange_command(
+        &self,
+        key: String,
+        start: String,
+        end: String,
+    ) -> Result<String, Box<dyn Error>> {
+        let mem = self.memory.lock().expect("Failed to lock mem");
+        let start_id = StreamKey::from_string(&start, &None, Some(0))?;
+        let end_id = StreamKey::from_string(&end, &None, Some(u64::MAX))?;
+
+        if end_id < start_id {
+            return Ok(to_err_string(String::from("ERR Invalid range")));
+        }
+
+        if let Some(entry_value) = mem.get(&key) {
+            if let ValueContainer::Stream(stream) = &entry_value.value {
+                let idx_start = match stream.binary_search_by(|val| val.id.cmp(&start_id)) {
+                    Ok(idx) => idx,
+                    Err(idx) => idx,
+                };
+
+                let idx_end = match stream.binary_search_by(|val| val.id.cmp(&end_id)) {
+                    Ok(idx) => idx,
+                    Err(idx) => idx,
+                };
+
+                let slice = &stream[idx_start..idx_end];
+                let serialized = resp_serializer::slc_objects_to_resp(slice);
+                return Ok(serialized);
+            }
+        }
+
+        Ok(to_err_string(String::from(
+            "ERR The ID specified not exists",
+        )))
     }
 }

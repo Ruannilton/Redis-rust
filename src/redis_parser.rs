@@ -53,8 +53,25 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<Command, Box<dyn s
             "KEYS" => build_keys_command(&mut it),
             "TYPE" => build_type_command(&mut it),
             "XADD" => build_xadd_command(&mut it),
+            "XRANGE" => build_xrange_command(&mut it),
             _ => Err(Box::new(RespInvalidCommandError::new("Invalid command"))),
         };
+    }
+    Err(Box::new(RespInvalidCommandError::new("No value found")))
+}
+
+fn build_xrange_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+    if let (
+        Some(RespToken::String(stream_id)),
+        Some(RespToken::String(start)),
+        Some(RespToken::String(end)),
+    ) = (it.next(), it.next(), it.next())
+    {
+        return Ok(Command::XRange(
+            stream_id.to_owned(),
+            start.to_owned(),
+            end.to_owned(),
+        ));
     }
     Err(Box::new(RespInvalidCommandError::new("No value found")))
 }
