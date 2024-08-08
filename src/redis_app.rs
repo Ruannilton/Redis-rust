@@ -285,7 +285,7 @@ impl RedisApp {
                 };
 
                 let idx_end = match stream.binary_search_by(|val| val.id.cmp(&end_id)) {
-                    Ok(idx) => idx,
+                    Ok(idx) => idx + 1,
                     Err(idx) => idx,
                 };
 
