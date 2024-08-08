@@ -54,10 +54,33 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<Command, Box<dyn s
             "TYPE" => build_type_command(&mut it),
             "XADD" => build_xadd_command(&mut it),
             "XRANGE" => build_xrange_command(&mut it),
+            "XREAD" => build_xread_command(&mut it),
             _ => Err(Box::new(RespInvalidCommandError::new("Invalid command"))),
         };
     }
     Err(Box::new(RespInvalidCommandError::new("No value found")))
+}
+
+fn build_xread_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+    if it.len() < 2 {
+        return Err(Box::new(RespInvalidCommandError::new("Invalid command")));
+    }
+
+    let mut args = Vec::with_capacity(it.len());
+
+    while let Some(token) = it.next() {
+        if let RespToken::String(arg) = token {
+            args.push(arg.to_owned());
+        } else {
+            return Err(Box::new(RespInvalidCommandError::new("Unexpected token")));
+        }
+    }
+
+    let id = args
+        .pop()
+        .ok_or(RespInvalidCommandError::new("No value found"))?;
+
+    Ok(Command::XRead(args, id))
 }
 
 fn build_xrange_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {

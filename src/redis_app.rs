@@ -152,6 +152,7 @@ impl RedisApp {
             Command::Type(tp) => Ok(self.type_command(tp)),
             Command::XAdd(key, id, fields) => self.xadd_command(key, id, fields),
             Command::XRange(key, start, end) => self.xrange_command(key, start, end),
+            Command::XRead(stream_keys, id) => self.xread(stream_keys, id),
         }
     }
 
@@ -298,5 +299,36 @@ impl RedisApp {
         Ok(to_err_string(String::from(
             "ERR The ID specified not exists",
         )))
+    }
+
+    fn xread(&self, stream_keys: Vec<String>, id: String) -> Result<String, Box<dyn Error>> {
+        let start_id = StreamKey::from_string(&id, &None, Some(0))?;
+        let mem = self.memory.lock().expect("Failed to lock mem");
+
+        let mut entry_parsed = Vec::new();
+
+        for key in stream_keys {
+            if let Some(entry) = mem.get(&key) {
+                if let ValueContainer::Stream(stream) = &entry.value {
+                    let idx_start = match stream.binary_search_by(|val| val.id.cmp(&start_id)) {
+                        Ok(idx) => idx,
+                        Err(idx) => idx,
+                    };
+
+                    let slice = &stream[idx_start..];
+                    let serialized = resp_serializer::slc_objects_to_resp(slice);
+                    let name_serialized = resp_serializer::to_resp_bulk(key);
+                    let blob_serialized = format!("*{}\r\n{}{}", 2, name_serialized, serialized);
+
+                    entry_parsed.push(blob_serialized);
+                }
+            }
+        }
+        let mut result = format!("*{}\r\n", entry_parsed.len());
+        for entry in entry_parsed {
+            result.push_str(&entry)
+        }
+
+        Ok(result)
     }
 }
