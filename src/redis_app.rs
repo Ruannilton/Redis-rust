@@ -155,8 +155,8 @@ impl RedisApp {
             Command::Type(tp) => Ok(self.type_command(tp)),
             Command::XAdd(key, id, fields) => self.xadd_command(key, id, fields),
             Command::XRange(key, start, end) => self.xrange_command(key, start, end),
-            Command::XRead(block_time, stream_keys, id) => {
-                self.xread(block_time, stream_keys, id).await
+            Command::XRead(block_time, stream_keys, ids) => {
+                self.xread(block_time, stream_keys, ids).await
             }
         }
     }
@@ -310,19 +310,24 @@ impl RedisApp {
         &self,
         block_time: Option<u64>,
         stream_keys: Vec<String>,
-        id: String,
+        ids: Vec<String>,
     ) -> Result<String, Box<dyn Error>> {
         if let Some(block_time) = block_time {
             tokio::time::sleep(Duration::from_millis(block_time)).await;
         }
 
-        let start_id = StreamKey::from_string(&id, &None, Some(0))?;
+        let start_ids = ids
+            .iter()
+            .map(|id| StreamKey::from_string(id, &None, Some(0)).unwrap());
+
         let mem = self.memory.lock().expect("Failed to lock mem");
+
+        let stream_with_time = stream_keys.iter().zip(start_ids);
 
         let mut entry_parsed = Vec::new();
 
-        for key in stream_keys {
-            if let Some(entry) = mem.get(&key) {
+        for (key, start_id) in stream_with_time {
+            if let Some(entry) = mem.get(key) {
                 if let ValueContainer::Stream(stream) = &entry.value {
                     let idx_start = match stream.binary_search_by(|val| val.id.cmp(&start_id)) {
                         Ok(idx) => idx + 1,
@@ -335,7 +340,7 @@ impl RedisApp {
 
                     let slice = &stream[idx_start..];
                     let serialized = resp_serializer::slc_objects_to_resp(slice);
-                    let name_serialized = resp_serializer::to_resp_bulk(key);
+                    let name_serialized = resp_serializer::to_resp_bulk(key.to_owned());
                     let blob_serialized = format!("*{}\r\n{}{}", 2, name_serialized, serialized);
 
                     entry_parsed.push(blob_serialized);

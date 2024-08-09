@@ -17,7 +17,7 @@ pub enum Command {
     Type(String),
     XAdd(String, String, Vec<(String, String)>),
     XRange(String, String, String),
-    XRead(Option<u64>, Vec<String>, String),
+    XRead(Option<u64>, Vec<String>, Vec<String>),
 }
 
 #[derive(Debug, Clone)]
