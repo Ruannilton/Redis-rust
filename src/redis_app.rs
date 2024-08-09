@@ -306,24 +306,19 @@ impl RedisApp {
         )))
     }
 
-    async fn xread_reader(
+    fn xread_reader(
         &self,
         stream_keys: &Vec<String>,
-        ids: &Vec<String>,
+        ids: &Vec<StreamKey>,
+        mem: &std::sync::MutexGuard<HashMap<String, EntryValue>>,
     ) -> Result<String, Box<dyn Error>> {
-        let mem = self.memory.lock().expect("Failed to lock mem");
-
         let stream_with_time = stream_keys.iter().zip(ids.iter());
-
         let mut entry_parsed = Vec::new();
 
         for (key, id) in stream_with_time {
             if let Some(entry) = mem.get(key) {
                 if let ValueContainer::Stream(stream) = &entry.value {
-                    let last_id = self.get_last_stream_key(&key, &mem);
-                    let start_id = StreamKey::from_string(&id, &last_id, Some(0))?;
-
-                    let idx_start = match stream.binary_search_by(|val| val.id.cmp(&start_id)) {
+                    let idx_start = match stream.binary_search_by(|val| val.id.cmp(id)) {
                         Ok(idx) => idx + 1,
                         Err(idx) => idx,
                     };
@@ -358,24 +353,55 @@ impl RedisApp {
         &self,
         block_time: Option<u64>,
         stream_keys: Vec<String>,
-        ids: Vec<String>,
+        strem_ids: Vec<String>,
     ) -> Result<String, Box<dyn Error>> {
+        let ids = self.calculate_stream_start_ids(&stream_keys, strem_ids)?;
+
         match block_time {
             Some(block_time) => {
                 if block_time > 0 {
                     tokio::time::sleep(Duration::from_millis(block_time)).await;
-                    self.xread_reader(&stream_keys, &ids).await
+                    let mem = self.memory.lock().expect("Failed to lock mem");
+                    self.xread_reader(&stream_keys, &ids, &mem)
                 } else {
                     loop {
                         tokio::time::sleep(Duration::from_millis(1000)).await;
-                        let resp = self.xread_reader(&stream_keys, &ids).await?;
+                        let mem = self.memory.lock().expect("Failed to lock mem");
+                        let resp = self.xread_reader(&stream_keys, &ids, &mem)?;
                         if resp != null_resp_string() {
                             return Ok(resp);
                         }
+                        println!("No entry found");
                     }
                 }
             }
-            None => self.xread_reader(&stream_keys, &ids).await,
+            None => {
+                let mem = self.memory.lock().expect("Failed to lock mem");
+                self.xread_reader(&stream_keys, &ids, &mem)
+            }
         }
+    }
+
+    fn calculate_stream_start_ids(
+        &self,
+        stream_keys: &Vec<String>,
+        strem_ids: Vec<String>,
+    ) -> Result<Vec<StreamKey>, Box<dyn Error>> {
+        let mut ids = Vec::new();
+
+        let mem = self.memory.lock().expect("Failed to lock mem");
+        let key_id = stream_keys.iter().zip(strem_ids.iter());
+        for (key, id) in key_id {
+            if id == "$" {
+                let last_id = self.get_last_stream_key(key, &mem);
+                let start_id = StreamKey::from_string(&id, &last_id, Some(0))?;
+                ids.push(start_id);
+            } else {
+                let start_id = StreamKey::from_string(&id, &None, Some(0))?;
+                ids.push(start_id);
+            }
+        }
+
+        Ok(ids)
     }
 }
