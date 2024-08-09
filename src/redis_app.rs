@@ -329,6 +329,10 @@ impl RedisApp {
                         Err(idx) => idx,
                     };
 
+                    if idx_start >= stream.len() {
+                        continue;
+                    }
+
                     let slice = &stream[idx_start..];
                     let serialized = resp_serializer::slc_objects_to_resp(slice);
                     let name_serialized = resp_serializer::to_resp_bulk(key);
@@ -338,6 +342,11 @@ impl RedisApp {
                 }
             }
         }
+
+        if entry_parsed.is_empty() {
+            return Ok(resp_serializer::null_resp_string());
+        }
+
         let mut result = format!("*{}\r\n", entry_parsed.len());
         for entry in entry_parsed {
             result.push_str(&entry)
