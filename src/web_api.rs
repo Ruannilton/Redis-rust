@@ -57,7 +57,7 @@ impl RedisServer {
             let commands = redis_parser::parse_token_int_command(&mut tokens_iter)?;
 
             for command in commands {
-                let result = cli.execute_command(command)?;
+                let result = cli.execute_command(command).await?;
                 let response = result.into_bytes();
 
                 stream.write(response.as_slice()).await?;

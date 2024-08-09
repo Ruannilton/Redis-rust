@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, sync::Mutex, u64};
+use std::{collections::HashMap, error::Error, sync::Mutex, time::Duration, u64};
 
 use crate::{
     rdb_file::RdbFile,
@@ -141,7 +141,10 @@ impl RedisApp {
         return null_resp_string();
     }
 
-    pub fn execute_command(&self, cmd: Command) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn execute_command(
+        &self,
+        cmd: Command,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         match cmd {
             Command::Ping => Ok(Self::ping_command()),
             Command::Echo(arg) => Ok(Self::echo_command(arg)),
@@ -152,7 +155,9 @@ impl RedisApp {
             Command::Type(tp) => Ok(self.type_command(tp)),
             Command::XAdd(key, id, fields) => self.xadd_command(key, id, fields),
             Command::XRange(key, start, end) => self.xrange_command(key, start, end),
-            Command::XRead(stream_keys, id) => self.xread(stream_keys, id),
+            Command::XRead(block_time, stream_keys, id) => {
+                self.xread(block_time, stream_keys, id).await
+            }
         }
     }
 
@@ -301,7 +306,16 @@ impl RedisApp {
         )))
     }
 
-    fn xread(&self, stream_keys: Vec<String>, id: String) -> Result<String, Box<dyn Error>> {
+    async fn xread(
+        &self,
+        block_time: Option<u64>,
+        stream_keys: Vec<String>,
+        id: String,
+    ) -> Result<String, Box<dyn Error>> {
+        if let Some(block_time) = block_time {
+            tokio::time::sleep(Duration::from_millis(block_time)).await;
+        }
+
         let start_id = StreamKey::from_string(&id, &None, Some(0))?;
         let mem = self.memory.lock().expect("Failed to lock mem");
 

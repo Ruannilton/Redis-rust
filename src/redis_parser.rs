@@ -62,25 +62,36 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<Command, Box<dyn s
 }
 
 fn build_xread_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
-    if it.len() < 2 {
-        return Err(Box::new(RespInvalidCommandError::new("Invalid command")));
-    }
+    let mut block_time: Option<u64> = None;
+    let mut args = Vec::with_capacity(it.len() - 2);
 
-    let mut args = Vec::with_capacity(it.len());
-
-    while let Some(token) = it.next() {
-        if let RespToken::String(arg) = token {
-            args.push(arg.to_owned());
-        } else {
-            return Err(Box::new(RespInvalidCommandError::new("Unexpected token")));
+    while let Some(RespToken::String(token)) = it.next() {
+        if token.to_uppercase() == "BLOCK" {
+            if let Some(RespToken::String(time)) = it.next() {
+                block_time = u64::from_str_radix(time, 10).ok();
+            }
+        } else if token.to_uppercase() == "STREAMS" {
+            let stream_len = it.len() - 1;
+            for _ in 0..stream_len {
+                if let Some(token) = it.next() {
+                    if let RespToken::String(arg) = token {
+                        args.push(arg.to_owned());
+                    } else {
+                        return Err(Box::new(RespInvalidCommandError::new("Unexpected token")));
+                    }
+                }
+            }
+            break;
         }
     }
 
-    let id = args
-        .pop()
-        .ok_or(RespInvalidCommandError::new("No value found"))?;
+    let stream_id = if let Some(RespToken::String(stream_start_id)) = it.last() {
+        stream_start_id.to_owned()
+    } else {
+        return Err(Box::new(RespInvalidCommandError::new("No value found")));
+    };
 
-    Ok(Command::XRead(args, id))
+    Ok(Command::XRead(block_time, args, stream_id))
 }
 
 fn build_xrange_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
