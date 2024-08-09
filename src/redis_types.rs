@@ -166,6 +166,9 @@ impl StreamKey {
         last_key: &Option<StreamKey>,
         sequence: Option<u64>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        if key == "$" {
+            return Ok(last_key.unwrap());
+        }
         if key == "-" {
             return Ok(Self::new(0, 1));
         }

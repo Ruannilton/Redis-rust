@@ -256,10 +256,10 @@ impl RedisApp {
 
     fn get_last_stream_key(
         &self,
-        stream_id: &str,
+        stream_key: &str,
         mem: &std::sync::MutexGuard<HashMap<String, EntryValue>>,
     ) -> Option<StreamKey> {
-        let entry = mem.get(stream_id)?;
+        let entry = mem.get(stream_key)?;
 
         if let ValueContainer::Stream(stream) = &entry.value {
             let last = stream.last()?;
@@ -311,19 +311,18 @@ impl RedisApp {
         stream_keys: &Vec<String>,
         ids: &Vec<String>,
     ) -> Result<String, Box<dyn Error>> {
-        let start_ids = ids
-            .iter()
-            .map(|id| StreamKey::from_string(id, &None, Some(0)).unwrap());
-
         let mem = self.memory.lock().expect("Failed to lock mem");
 
-        let stream_with_time = stream_keys.iter().zip(start_ids);
+        let stream_with_time = stream_keys.iter().zip(ids.iter());
 
         let mut entry_parsed = Vec::new();
 
-        for (key, start_id) in stream_with_time {
+        for (key, id) in stream_with_time {
             if let Some(entry) = mem.get(key) {
                 if let ValueContainer::Stream(stream) = &entry.value {
+                    let last_id = self.get_last_stream_key(&key, &mem);
+                    let start_id = StreamKey::from_string(&id, &last_id, Some(0))?;
+
                     let idx_start = match stream.binary_search_by(|val| val.id.cmp(&start_id)) {
                         Ok(idx) => idx + 1,
                         Err(idx) => idx,
