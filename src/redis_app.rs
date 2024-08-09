@@ -325,7 +325,7 @@ impl RedisApp {
             if let Some(entry) = mem.get(&key) {
                 if let ValueContainer::Stream(stream) = &entry.value {
                     let idx_start = match stream.binary_search_by(|val| val.id.cmp(&start_id)) {
-                        Ok(idx) => idx,
+                        Ok(idx) => idx + 1,
                         Err(idx) => idx,
                     };
 
