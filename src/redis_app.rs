@@ -306,16 +306,11 @@ impl RedisApp {
         )))
     }
 
-    async fn xread(
+    async fn xread_reader(
         &self,
-        block_time: Option<u64>,
-        stream_keys: Vec<String>,
-        ids: Vec<String>,
+        stream_keys: &Vec<String>,
+        ids: &Vec<String>,
     ) -> Result<String, Box<dyn Error>> {
-        if let Some(block_time) = block_time {
-            tokio::time::sleep(Duration::from_millis(block_time)).await;
-        }
-
         let start_ids = ids
             .iter()
             .map(|id| StreamKey::from_string(id, &None, Some(0)).unwrap());
@@ -358,5 +353,30 @@ impl RedisApp {
         }
 
         Ok(result)
+    }
+
+    async fn xread(
+        &self,
+        block_time: Option<u64>,
+        stream_keys: Vec<String>,
+        ids: Vec<String>,
+    ) -> Result<String, Box<dyn Error>> {
+        match block_time {
+            Some(block_time) => {
+                if block_time > 0 {
+                    tokio::time::sleep(Duration::from_millis(block_time)).await;
+                    self.xread_reader(&stream_keys, &ids).await
+                } else {
+                    loop {
+                        tokio::time::sleep(Duration::from_millis(1000)).await;
+                        let resp = self.xread_reader(&stream_keys, &ids).await?;
+                        if resp != null_resp_string() {
+                            return Ok(resp);
+                        }
+                    }
+                }
+            }
+            None => self.xread_reader(&stream_keys, &ids).await,
+        }
     }
 }
