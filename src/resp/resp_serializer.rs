@@ -2,6 +2,10 @@ pub fn to_resp_string(input: String) -> String {
     format!("+{}\r\n", input)
 }
 
+pub fn to_resp_integer(input: i64) -> String {
+    format!(":{}\r\n", input)
+}
+
 pub fn to_resp_bulk(input: String) -> String {
     format!("${}\r\n{}\r\n", input.len(), input)
 }

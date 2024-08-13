@@ -6,6 +6,7 @@ use crate::redis::types::command_token::CommandToken;
 use config_get_command::ConfiGet;
 use echo_command::EchoCommand;
 use get_command::GetCommand;
+use inc_command::IncCommand;
 use keys_command::KeysCommand;
 use ping_command::PingCommand;
 use set_command::SetCommand;
@@ -36,5 +37,6 @@ pub async fn execute_command(app: &RedisApp, cmd: CommandToken) -> Result<String
                 .execute(app)
                 .await
         }
+        CommandToken::Inc(key) => IncCommand::new(key).execute(app).await,
     }
 }

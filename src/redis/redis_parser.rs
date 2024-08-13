@@ -44,6 +44,7 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
             "XADD" => build_xadd_command(&mut it),
             "XRANGE" => build_xrange_command(&mut it),
             "XREAD" => build_xread_command(&mut it),
+            "INC" => build_inc_command(&mut it),
             _ => return Err(RedisError::InvalidCommand(cmd)),
         }
     } else {
@@ -147,7 +148,6 @@ fn build_config_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisE
     }
 }
 
-// TODO: extract expiration time
 fn build_set_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let (Some(RespToken::String(key)), Some(value)) = (it.next(), it.next()) {
         let mut peekable = it.peekable();
@@ -174,6 +174,14 @@ fn build_set_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisErro
 fn build_get_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let Some(RespToken::String(s)) = it.next() {
         Ok(CommandToken::Get(s.to_owned()))
+    } else {
+        Err(RedisError::InvalidArgument)
+    }
+}
+
+fn build_inc_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
+    if let Some(RespToken::String(s)) = it.next() {
+        Ok(CommandToken::Inc(s.to_owned()))
     } else {
         Err(RedisError::InvalidArgument)
     }

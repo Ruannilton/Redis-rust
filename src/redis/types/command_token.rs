@@ -12,4 +12,5 @@ pub enum CommandToken {
     XAdd(String, String, Vec<(String, String)>),
     XRange(String, String, String),
     XRead(Option<u64>, Vec<String>, Vec<String>),
+    Inc(String),
 }
