@@ -44,7 +44,7 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
             "XADD" => build_xadd_command(&mut it),
             "XRANGE" => build_xrange_command(&mut it),
             "XREAD" => build_xread_command(&mut it),
-            "INC" => build_inc_command(&mut it),
+            "INCR" => build_inc_command(&mut it),
             _ => return Err(RedisError::InvalidCommand(cmd)),
         }
     } else {
