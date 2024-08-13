@@ -1,17 +1,10 @@
-mod rdb_file;
-mod redis_app;
-mod redis_parser;
-mod redis_types;
-mod resp_desserializer;
-mod resp_desserializer_error;
-mod resp_invalid_command_error;
-mod resp_serializer;
-mod resp_type;
+mod redis;
+mod redis_server;
+mod resp;
 mod utils;
-mod web_api;
-use redis_app::RedisApp;
+use redis::redis_app::RedisApp;
+use redis_server::RedisServer;
 use std::{env, sync::Arc};
-use web_api::RedisServer;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args().skip(1);

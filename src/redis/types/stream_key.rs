@@ -1,137 +1,6 @@
-use std::{cmp::Ordering, error::Error, fmt, u128, u64};
+use std::cmp::Ordering;
 
-use crate::{
-    resp_serializer::{to_resp_array, to_resp_bulk, RespSerializer},
-    resp_type::RespToken,
-    utils,
-};
-
-#[derive(Debug)]
-pub enum Command {
-    Ping,
-    Echo(ValueContainer),
-    Set(String, ValueContainer, Option<u128>),
-    Get(String),
-    ConfigGet(String),
-    Keys(String),
-    Type(String),
-    XAdd(String, String, Vec<(String, String)>),
-    XRange(String, String, String),
-    XRead(Option<u64>, Vec<String>, Vec<String>),
-}
-
-#[derive(Debug, Clone)]
-pub struct StreamEntry {
-    pub id: StreamKey,
-    pub fields: Vec<(String, String)>,
-}
-
-impl Into<String> for &StreamEntry {
-    fn into(self) -> String {
-        let fields = self
-            .fields
-            .iter()
-            .map(|i| format!("{}: {}", i.0, i.1))
-            .collect::<Vec<String>>()
-            .join(", ");
-        let id_str: String = self.id.clone().into();
-        format!("{{{} [{}]}}", id_str, fields)
-    }
-}
-
-impl RespSerializer for StreamEntry {
-    fn to_resp(&self) -> String {
-        let fields_array: Vec<String> = self
-            .fields
-            .iter()
-            .map(|x| [x.0.clone(), x.1.clone()])
-            .flatten()
-            .collect();
-        let fields_resp = to_resp_array(fields_array);
-        let id_resp = to_resp_bulk(self.id.into());
-        format!("*2\r\n{id_resp}{fields_resp}")
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum ValueContainer {
-    String(String),
-    Stream(Vec<StreamEntry>),
-    Integer(i64),
-    Array(Vec<ValueContainer>),
-}
-
-impl Into<String> for ValueContainer {
-    fn into(self) -> String {
-        to_string(&self)
-    }
-}
-
-impl Into<String> for &ValueContainer {
-    fn into(self) -> String {
-        to_string(self)
-    }
-}
-
-impl From<RespToken> for ValueContainer {
-    fn from(value: RespToken) -> Self {
-        from_aux(&value)
-    }
-}
-
-impl From<&RespToken> for ValueContainer {
-    fn from(value: &RespToken) -> Self {
-        from_aux(value)
-    }
-}
-
-fn to_string(container: &ValueContainer) -> String {
-    match container {
-        ValueContainer::String(s) => s.to_owned(),
-        ValueContainer::Integer(i) => i.to_string(),
-        ValueContainer::Stream(a) => a
-            .iter()
-            .map(|x| x.into())
-            .collect::<Vec<String>>()
-            .join(", "),
-        ValueContainer::Array(a) => a
-            .iter()
-            .map(|x| to_string(x))
-            .collect::<Vec<String>>()
-            .join(", "),
-    }
-}
-
-fn from_aux(value: &RespToken) -> ValueContainer {
-    match value {
-        RespToken::String(s) => ValueContainer::String(s.to_owned()),
-        RespToken::Integer(i) => ValueContainer::Integer(i.to_owned()),
-        RespToken::Error(s) => ValueContainer::String(s.to_owned()),
-        RespToken::Array(a) => ValueContainer::Array(a.iter().map(|x| from_aux(x)).collect()),
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct StreamKeyDesserializerError {
-    message: String,
-}
-
-impl StreamKeyDesserializerError {
-    // Constructor to create a new error with a message
-    pub fn new(msg: &str) -> StreamKeyDesserializerError {
-        StreamKeyDesserializerError {
-            message: msg.to_string(),
-        }
-    }
-}
-
-impl fmt::Display for StreamKeyDesserializerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RespDesserializerError: {}", self.message)
-    }
-}
-
-impl Error for StreamKeyDesserializerError {}
+use crate::{redis::redis_error::RedisError, utils};
 
 #[derive(Debug, Clone, Copy)]
 pub struct StreamKey {
@@ -165,7 +34,7 @@ impl StreamKey {
         key: &String,
         last_key: &Option<StreamKey>,
         sequence: Option<u64>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, RedisError> {
         if key == "$" {
             return Ok(last_key.unwrap());
         }
@@ -183,9 +52,10 @@ impl StreamKey {
 
         let time = splited
             .get(0)
-            .ok_or(StreamKeyDesserializerError::new("Id inválido"))?;
+            .ok_or(RedisError::InvalidStreamEntryId(key.to_owned()))?;
 
-        let time_u128 = u128::from_str_radix(time, 10)?;
+        let time_u128 = u128::from_str_radix(time, 10)
+            .map_err(|_| RedisError::InvalidStreamEntryId(key.to_owned()))?;
 
         let sequence = if let Some(sequence) = splited.get(1) {
             if *sequence == "*" {
@@ -198,9 +68,10 @@ impl StreamKey {
                 return Ok(StreamKey::new(time_u128, new_seq));
             }
 
-            u64::from_str_radix(sequence, 10)?
+            u64::from_str_radix(sequence, 10)
+                .map_err(|_| RedisError::InvalidStreamEntryId(key.to_owned()))?
         } else {
-            sequence.ok_or(StreamKeyDesserializerError::new("Id inválido"))?
+            sequence.ok_or(RedisError::InvalidStreamEntryId(key.to_owned()))?
         };
 
         Ok(StreamKey::new(time_u128, sequence))

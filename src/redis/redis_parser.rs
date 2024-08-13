@@ -1,26 +1,25 @@
-use std::{collections::HashMap, error::Error, iter::Peekable, slice::Iter};
+use std::{collections::HashMap, iter::Peekable, slice::Iter};
 
-use crate::{
-    redis_types::{Command, ValueContainer},
-    resp_desserializer_error::RespDesserializerError,
-    resp_invalid_command_error::RespInvalidCommandError,
-    resp_type::RespToken,
+use crate::resp::resp_token::RespToken;
+
+use super::{
+    redis_error::RedisError,
+    types::{command_token::CommandToken, value_container::ValueContainer},
 };
 
 pub fn parse_token_int_command(
     it: &mut Peekable<Iter<RespToken>>,
-) -> Result<Vec<Command>, Box<dyn std::error::Error>> {
+) -> Result<Vec<CommandToken>, RedisError> {
     let mut commands = Vec::new();
 
     while let Some(token) = it.next() {
         let cmd = match token {
             RespToken::Array(arr) => handle_aggregate_command(arr)?,
-            RespToken::String(cmd) => handle_simple_command(cmd)?,
-            _ => {
-                return Err(Box::new(RespDesserializerError::new(
-                    "Command deve iniciar com um array ou string",
-                )))
+            RespToken::String(cmd) => {
+                let arr = vec![RespToken::String(cmd.to_owned())];
+                handle_aggregate_command(&arr)?
             }
+            _ => return Err(RedisError::UnexpectedToken),
         };
 
         commands.push(cmd);
@@ -29,23 +28,13 @@ pub fn parse_token_int_command(
     return Ok(commands);
 }
 
-fn handle_simple_command(token: &String) -> Result<Command, Box<dyn std::error::Error>> {
-    let upper_cmd = token.to_uppercase();
-    match upper_cmd.as_str() {
-        "PING" => Ok(Command::Ping),
-        _ => return Err(Box::new(RespInvalidCommandError::new(upper_cmd.as_str()))),
-    }
-}
-
-fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<Command, Box<dyn std::error::Error>> {
+fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, RedisError> {
     let mut it = token.iter();
-    if token.len() == 1 {
-        if let Some(RespToken::String(command)) = it.next() {
-            return handle_simple_command(command);
-        }
-    }
+
     if let Some(RespToken::String(command)) = it.next() {
-        return match command.to_uppercase().as_str() {
+        let cmd = command.to_uppercase();
+        match cmd.as_str() {
+            "PING" => Ok(CommandToken::Ping),
             "ECHO" => build_echo_command(&mut it),
             "GET" => build_get_command(&mut it),
             "SET" => build_set_command(&mut it),
@@ -55,13 +44,14 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<Command, Box<dyn s
             "XADD" => build_xadd_command(&mut it),
             "XRANGE" => build_xrange_command(&mut it),
             "XREAD" => build_xread_command(&mut it),
-            _ => Err(Box::new(RespInvalidCommandError::new("Invalid command"))),
-        };
+            _ => return Err(RedisError::InvalidCommand(cmd)),
+        }
+    } else {
+        Err(RedisError::NoTokenAvailable)
     }
-    Err(Box::new(RespInvalidCommandError::new("No value found")))
 }
 
-fn build_xread_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_xread_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     let mut block_time: Option<u64> = None;
     let mut stream_names = Vec::with_capacity(it.len() - 2);
 
@@ -75,7 +65,7 @@ fn build_xread_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Erro
                 if let RespToken::String(arg) = token {
                     stream_names.push(arg.to_owned());
                 } else {
-                    return Err(Box::new(RespInvalidCommandError::new("Unexpected token")));
+                    return Err(RedisError::UnexpectedToken);
                 }
             }
         }
@@ -83,26 +73,26 @@ fn build_xread_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Erro
 
     let stream_ids = stream_names.split_off(stream_names.len() / 2);
 
-    Ok(Command::XRead(block_time, stream_names, stream_ids))
+    Ok(CommandToken::XRead(block_time, stream_names, stream_ids))
 }
 
-fn build_xrange_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_xrange_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let (
         Some(RespToken::String(stream_id)),
         Some(RespToken::String(start)),
         Some(RespToken::String(end)),
     ) = (it.next(), it.next(), it.next())
     {
-        return Ok(Command::XRange(
+        return Ok(CommandToken::XRange(
             stream_id.to_owned(),
             start.to_owned(),
             end.to_owned(),
         ));
     }
-    Err(Box::new(RespInvalidCommandError::new("No value found")))
+    Err(RedisError::NoTokenAvailable)
 }
 
-fn build_xadd_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_xadd_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let (Some(RespToken::String(stream_id)), Some(RespToken::String(entry_id))) =
         (it.next(), it.next())
     {
@@ -114,57 +104,51 @@ fn build_xadd_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error
             fields.push((key.to_owned(), value.to_owned()));
         }
 
-        Ok(Command::XAdd(
+        Ok(CommandToken::XAdd(
             stream_id.to_owned(),
             entry_id.to_owned(),
             fields,
         ))
     } else {
-        Err(Box::new(RespInvalidCommandError::new("No value found")))
+        Err(RedisError::NoTokenAvailable)
     }
 }
 
-fn build_type_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_type_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let Some(RespToken::String(s)) = it.next() {
-        Ok(Command::Type(s.to_owned()))
+        Ok(CommandToken::Type(s.to_owned()))
     } else {
-        Err(Box::new(RespInvalidCommandError::new(
-            "Invalid argument type",
-        )))
+        Err(RedisError::InvalidArgument)
     }
 }
 
-fn build_keys_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_keys_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let Some(RespToken::String(s)) = it.next() {
-        Ok(Command::Keys(s.to_owned()))
+        Ok(CommandToken::Keys(s.to_owned()))
     } else {
-        Err(Box::new(RespInvalidCommandError::new(
-            "Invalid argument type",
-        )))
+        Err(RedisError::InvalidArgument)
     }
 }
 
-fn build_config_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_config_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let Some(RespToken::String(command)) = it.next() {
         match command.to_uppercase().as_str() {
             "GET" => {
                 if let Some(RespToken::String(key)) = it.next() {
-                    Ok(Command::ConfigGet(key.to_owned()))
+                    Ok(CommandToken::ConfigGet(key.to_owned()))
                 } else {
-                    Err(Box::new(RespInvalidCommandError::new("Invalid argument")))
+                    Err(RedisError::InvalidArgument)
                 }
             }
-            _ => Err(Box::new(RespInvalidCommandError::new(
-                "Invalid config argument",
-            ))),
+            _ => Err(RedisError::InvalidArgument),
         }
     } else {
-        Err(Box::new(RespInvalidCommandError::new("Invalid argument")))
+        Err(RedisError::InvalidArgument)
     }
 }
 
 // TODO: extract expiration time
-fn build_set_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_set_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let (Some(RespToken::String(key)), Some(value)) = (it.next(), it.next()) {
         let mut peekable = it.peekable();
         let options =
@@ -181,36 +165,30 @@ fn build_set_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>
             }
         }
 
-        Ok(Command::Set(key.to_owned(), value.into(), expires_at))
+        Ok(CommandToken::Set(key.to_owned(), value.into(), expires_at))
     } else {
-        Err(Box::new(RespInvalidCommandError::new(
-            "Invalid argument type",
-        )))
+        Err(RedisError::InvalidArgument)
     }
 }
 
-fn build_get_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_get_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let Some(RespToken::String(s)) = it.next() {
-        Ok(Command::Get(s.to_owned()))
+        Ok(CommandToken::Get(s.to_owned()))
     } else {
-        Err(Box::new(RespInvalidCommandError::new(
-            "Invalid argument type",
-        )))
+        Err(RedisError::InvalidArgument)
     }
 }
 
-fn build_echo_command(it: &mut Iter<RespToken>) -> Result<Command, Box<dyn Error>> {
+fn build_echo_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
     if let Some(arg) = it.next() {
         return match arg {
-            RespToken::String(s) => Ok(Command::Echo(ValueContainer::String(s.to_owned()))),
-            RespToken::Integer(i) => Ok(Command::Echo(ValueContainer::Integer(i.to_owned()))),
-            _ => Err(Box::new(RespInvalidCommandError::new(
-                "Invalid argument type",
-            ))),
+            RespToken::String(s) => Ok(CommandToken::Echo(ValueContainer::String(s.to_owned()))),
+            RespToken::Integer(i) => Ok(CommandToken::Echo(ValueContainer::Integer(i.to_owned()))),
+            _ => Err(RedisError::InvalidArgument),
         };
     }
 
-    Err(Box::new(RespInvalidCommandError::new("Invalid argument")))
+    Err(RedisError::InvalidArgument)
 }
 
 fn search_optional_args(

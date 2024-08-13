@@ -5,7 +5,10 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::{redis_app::RedisApp, redis_parser, resp_desserializer::RespDesserializer};
+use crate::{
+    redis::{redis_app::RedisApp, redis_parser},
+    resp::resp_desserializer::{self},
+};
 pub struct RedisServer {
     listener: TcpListener,
     app: Arc<RedisApp>,
@@ -52,7 +55,7 @@ impl RedisServer {
 
             println!("Received: {:?}", std::str::from_utf8(readed_buffer)?);
 
-            let tokens = RespDesserializer::desserialize(readed_buffer)?;
+            let tokens = resp_desserializer::desserialize(readed_buffer)?;
             let mut tokens_iter = tokens.iter().peekable();
             let commands = redis_parser::parse_token_int_command(&mut tokens_iter)?;
 
