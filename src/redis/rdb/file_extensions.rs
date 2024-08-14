@@ -19,12 +19,11 @@ pub trait FileExt {
 
 impl FileExt for File {
     fn next_string(&mut self, len: usize) -> Result<String, RedisError> {
-        let mut buffer = Vec::with_capacity(len);
+        let mut buffer = vec![0; len];
 
-        self.read(&mut buffer)
+        self.read_exact(&mut buffer)
             .map_err(|err| RedisError::IOError(err))?;
-
-        let parsed = String::from_utf8(buffer.into()).map_err(|_| RedisError::ParsingError)?;
+        let parsed = String::from_utf8(buffer).map_err(|_| RedisError::ParsingError)?;
         Ok(parsed)
     }
 

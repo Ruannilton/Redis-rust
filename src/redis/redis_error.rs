@@ -13,6 +13,7 @@ pub enum RedisError {
     RDBInvalidHeader,
     IOError(std::io::Error),
     ParsingError,
+    InvalidOpCode,
 }
 
 impl Error for RedisError {}
@@ -35,6 +36,7 @@ impl Display for RedisError {
             RedisError::IOError(err) => err.fmt(f),
             RedisError::RDBInvalidHeader => write!(f, "RDB header is invalid"),
             RedisError::ParsingError => write!(f, "Parsing error"),
+            RedisError::InvalidOpCode => write!(f, "Invalid Op Code"),
         }
     }
 }

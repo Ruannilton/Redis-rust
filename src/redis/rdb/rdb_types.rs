@@ -36,7 +36,7 @@ impl TryInto<OpCodes> for u8 {
             0xFB => Ok(OpCodes::ResizeDb),
             0xFA => Ok(OpCodes::Metadata),
             0x00 => Ok(OpCodes::StringValue),
-            _ => Err(RedisError::RDBInvalidHeader),
+            _ => Err(RedisError::InvalidOpCode),
         }
     }
 }

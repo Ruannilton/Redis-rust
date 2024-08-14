@@ -72,7 +72,7 @@ fn read_database(file: &mut impl FileExt) -> Result<HashMap<String, EntryValue>,
 fn check_header(file: &mut impl FileExt) -> Result<(), RedisError> {
     let match_header = "REDIS";
     let file_header = file.next_string(5)?;
-    _ = file.next_string(5)?; // get version string
+    _ = file.next_string(4)?; // get version string
 
     let valid = file_header == match_header;
 
