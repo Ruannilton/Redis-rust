@@ -9,7 +9,7 @@ pub enum RedisError {
     LockError,
     InvalidStreamEntryId(String),
     RestoreRDBError,
-    RDBDecodeSizeError,
+    RDBDecodeSizeError(u8, u8, u8),
     RDBInvalidHeader,
     IOError(std::io::Error),
     ParsingError,
@@ -30,8 +30,12 @@ impl Display for RedisError {
             }
             RedisError::LockError => write!(f, "Failed to lock resource"),
             RedisError::RestoreRDBError => write!(f, "Failed to restore from RDB"),
-            RedisError::RDBDecodeSizeError => {
-                write!(f, "Failed to parse bytes do size encoded value")
+            RedisError::RDBDecodeSizeError(b, m, r) => {
+                write!(
+                    f,
+                    "Failed to parse bytes do size encoded value. Byte: {}, mode: {}, remain: {}",
+                    b, m, r
+                )
             }
             RedisError::IOError(err) => err.fmt(f),
             RedisError::RDBInvalidHeader => write!(f, "RDB header is invalid"),

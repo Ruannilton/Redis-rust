@@ -135,9 +135,9 @@ fn decode_size(file: &mut impl FileExt) -> Result<SizeEncodedValue, RedisError> 
             )),
             2 => Ok(SizeEncodedValue::IntegerString(IntegerStringLen::QuadWord)),
             3 => Ok(SizeEncodedValue::LZFString),
-            _ => Err(RedisError::RDBDecodeSizeError),
+            _ => Err(RedisError::RDBDecodeSizeError(size, size_mode, remaining)),
         },
-        _ => Err(RedisError::RDBDecodeSizeError),
+        _ => Err(RedisError::RDBDecodeSizeError(size, size_mode, remaining)),
     }
 }
 
