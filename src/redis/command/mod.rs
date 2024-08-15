@@ -1,6 +1,7 @@
 pub(super) mod command_executor;
 pub(super) mod command_trait;
 pub(super) mod config_get_command;
+pub mod discard_command;
 pub(super) mod echo_command;
 pub mod exec_command;
 pub(super) mod get_command;

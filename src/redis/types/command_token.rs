@@ -15,4 +15,5 @@ pub enum CommandToken {
     Inc(String),
     Multi,
     Exec,
+    Discard,
 }

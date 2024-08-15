@@ -5,6 +5,7 @@ use crate::redis::types::command_token::CommandToken;
 use crate::redis::types::transactions::ClientId;
 
 use config_get_command::ConfiGet;
+use discard_command::DiscardCommand;
 use echo_command::EchoCommand;
 use exec_command::ExecCommand;
 use get_command::GetCommand;
@@ -47,5 +48,6 @@ pub async fn execute_command(
         CommandToken::Inc(key) => IncCommand::new(key).execute(app).await,
         CommandToken::Multi => MultiCommand::new(client_id).execute(app).await,
         CommandToken::Exec => ExecCommand::new(client_id).execute(app).await,
+        CommandToken::Discard => DiscardCommand::new(client_id).execute(app).await,
     }
 }
