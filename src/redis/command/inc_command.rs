@@ -4,7 +4,7 @@ use crate::{
         redis_error::RedisError,
         types::{entry_value::EntryValue, value_container::ValueContainer},
     },
-    resp::resp_serializer::to_resp_integer,
+    resp::resp_serializer::{to_err_string, to_resp_integer},
 };
 
 use super::command_trait::Command;
@@ -30,7 +30,11 @@ impl Command for IncCommand {
                         i64::from_str_radix(str, 10).map_err(|_| RedisError::ParsingError)? + 1
                     }
                     ValueContainer::Integer(i) => *i + 1,
-                    _ => return Err(RedisError::InvalidArgument),
+                    _ => {
+                        return Ok(to_err_string(
+                            "ERR value is not an integer or out of range".into(),
+                        ))
+                    }
                 };
 
                 entry.value = ValueContainer::Integer(new_val);
