@@ -15,7 +15,7 @@ pub(crate) enum IntegerStringLen {
 }
 
 #[repr(u8)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub(crate) enum OpCodes {
     EOF = 0xFF,
     SelectDb = 0xFE,

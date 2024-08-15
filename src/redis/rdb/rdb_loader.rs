@@ -48,7 +48,7 @@ fn read_database(file: &mut impl FileExt) -> Result<HashMap<String, EntryValue>,
 
     loop {
         let mut op_code: OpCodes = file.next_u8()?.try_into()?;
-
+        println!("Readed: {:?}", op_code);
         let exp = match op_code {
             OpCodes::ExpireTime => Some(file.next_u32()? as u128),
             OpCodes::ExpireTimeMs => Some(file.next_u64()? as u128),
@@ -154,8 +154,10 @@ fn read_database_size(file: &mut impl FileExt) -> Result<(), RedisError> {
     let header = file.peek()?;
 
     if header == OpCodes::ResizeDb as u8 {
-        _ = decode_size(file)?;
-        _ = decode_size(file)?;
+        let hash_table_size = decode_size(file)?;
+        let exp_table_size = decode_size(file)?;
+        println!("Hash Table Size: {:?}", hash_table_size);
+        println!("Expiration Table Size: {:?}", exp_table_size);
     }
 
     Ok(())
