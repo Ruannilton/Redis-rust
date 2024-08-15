@@ -32,7 +32,7 @@ impl FileExt for File {
         self.read_exact(&mut buffer)
             .map_err(|err| RedisError::IOError(err))?;
 
-        let integer_value = u64::from_be_bytes(buffer);
+        let integer_value = u64::from_le_bytes(buffer);
         Ok(integer_value)
     }
 
@@ -41,7 +41,7 @@ impl FileExt for File {
         self.read_exact(&mut buffer)
             .map_err(|err| RedisError::IOError(err))?;
 
-        let integer_value = u32::from_be_bytes(buffer);
+        let integer_value = u32::from_le_bytes(buffer);
         Ok(integer_value)
     }
 
@@ -56,7 +56,7 @@ impl FileExt for File {
         let mut buffer = [0u8; 4];
         self.read_exact(&mut buffer)
             .map_err(|err| RedisError::IOError(err))?;
-        let value = i32::from_be_bytes(buffer);
+        let value = i32::from_le_bytes(buffer);
         Ok(value)
     }
 
@@ -64,7 +64,7 @@ impl FileExt for File {
         let mut buffer = [0u8; 2];
         self.read_exact(&mut buffer)
             .map_err(|err| RedisError::IOError(err))?;
-        let value = i16::from_be_bytes(buffer);
+        let value = i16::from_le_bytes(buffer);
         Ok(value)
     }
 
@@ -72,7 +72,7 @@ impl FileExt for File {
         let mut buffer = [0u8; 1];
         self.read_exact(&mut buffer)
             .map_err(|err| RedisError::IOError(err))?;
-        let value = i8::from_be_bytes(buffer);
+        let value = i8::from_le_bytes(buffer);
         Ok(value)
     }
 
