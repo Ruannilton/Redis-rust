@@ -10,6 +10,7 @@ pub enum RedisError {
     InvalidStreamEntryId(String),
     RestoreRDBError,
     RDBDecodeSizeError(u8, u8, u8),
+    RDBInvalidSizeModeError(u8, u8, u8),
     RDBInvalidHeader,
     IOError(std::io::Error),
     ParsingError,
@@ -34,6 +35,13 @@ impl Display for RedisError {
                 write!(
                     f,
                     "Failed to parse bytes do size encoded value. Byte: {}, mode: {}, remain: {}",
+                    b, m, r
+                )
+            }
+            RedisError::RDBInvalidSizeModeError(b, m, r) => {
+                write!(
+                    f,
+                    "Modo inválido ao decodificar tamanho. Byte: {}, mode: {}, remain: {}",
                     b, m, r
                 )
             }
