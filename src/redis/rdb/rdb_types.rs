@@ -1,11 +1,13 @@
 use crate::redis::redis_error::RedisError;
 
+#[derive(Debug)]
 pub(crate) enum SizeEncodedValue {
     Size(usize),
     IntegerString(IntegerStringLen),
     LZFString,
 }
 
+#[derive(Debug)]
 pub(crate) enum IntegerStringLen {
     SingleWord = 0,
     DoubleWord = 1,

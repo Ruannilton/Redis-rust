@@ -40,7 +40,8 @@ fn read_database(file: &mut impl FileExt) -> Result<HashMap<String, EntryValue>,
     let db_header: OpCodes = file.next_u8()?.try_into()?;
 
     if db_header == OpCodes::SelectDb {
-        _ = decode_size(file)?;
+        let db_index = decode_size(file)?;
+        println!("Db Selected: {:?}", db_index);
     }
 
     _ = read_database_size(file)?;
