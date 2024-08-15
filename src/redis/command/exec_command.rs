@@ -17,7 +17,7 @@ impl ExecCommand {
 
 impl Command for ExecCommand {
     async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
-        let transactions = app.transactions.lock().await;
+        let mut transactions = app.transactions.lock().await;
 
         match transactions.get(&self.client_id) {
             Some(commands) => {
@@ -30,6 +30,7 @@ impl Command for ExecCommand {
                 for r in responses {
                     response.push_str(&r);
                 }
+                transactions.remove(&self.client_id);
                 return Ok(response);
             }
             None => return Ok(to_err_string("ERR EXEC without MULTI".to_owned())),
