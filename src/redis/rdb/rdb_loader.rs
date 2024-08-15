@@ -154,6 +154,7 @@ fn read_database_size(file: &mut impl FileExt) -> Result<(), RedisError> {
     let header = file.peek()?;
 
     if header == OpCodes::ResizeDb as u8 {
+        println!("Reading table size...");
         let hash_table_size = decode_size(file)?;
         let exp_table_size = decode_size(file)?;
         println!("Hash Table Size: {:?}", hash_table_size);
