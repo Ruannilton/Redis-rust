@@ -26,9 +26,14 @@ impl Command for IncCommand {
         let new_val = match mem.get_mut(&self.key) {
             Some(entry) => {
                 let new_val = match &entry.value {
-                    ValueContainer::String(str) => {
-                        i64::from_str_radix(str, 10).map_err(|_| RedisError::ParsingError)? + 1
-                    }
+                    ValueContainer::String(str) => match i64::from_str_radix(str, 10) {
+                        Ok(v) => v + 1,
+                        _ => {
+                            return Ok(to_err_string(
+                                "ERR value is not an integer or out of range".into(),
+                            ))
+                        }
+                    },
                     ValueContainer::Integer(i) => *i + 1,
                     _ => {
                         return Ok(to_err_string(
