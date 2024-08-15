@@ -37,7 +37,12 @@ fn read_file(mut file: impl FileExt) -> Result<HashMap<String, EntryValue>, Redi
 fn read_database(file: &mut impl FileExt) -> Result<HashMap<String, EntryValue>, RedisError> {
     let mut entries = HashMap::new();
 
-    _ = decode_size(file)?;
+    let db_header: OpCodes = file.next_u8()?.try_into()?;
+
+    if db_header == OpCodes::SelectDb {
+        _ = decode_size(file)?;
+    }
+
     _ = read_database_size(file)?;
 
     loop {
@@ -86,7 +91,8 @@ fn check_header(file: &mut impl FileExt) -> Result<(), RedisError> {
 fn read_metadata(file: &mut impl FileExt) -> Result<HashMap<String, String>, RedisError> {
     let mut metadata = HashMap::new();
 
-    while file.next_u8()? == OpCodes::Metadata as u8 {
+    while file.peek()? == OpCodes::Metadata as u8 {
+        _ = file.next_u8()?;
         let key = read_string(file)?;
         let val = read_string(file)?;
 
