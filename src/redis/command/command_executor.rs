@@ -8,6 +8,7 @@ use echo_command::EchoCommand;
 use get_command::GetCommand;
 use inc_command::IncCommand;
 use keys_command::KeysCommand;
+use multi_command::MultiCommand;
 use ping_command::PingCommand;
 use set_command::SetCommand;
 use type_command::TypeCommand;
@@ -38,5 +39,6 @@ pub async fn execute_command(app: &RedisApp, cmd: CommandToken) -> Result<String
                 .await
         }
         CommandToken::Inc(key) => IncCommand::new(key).execute(app).await,
+        CommandToken::Multi => MultiCommand::new().execute(app).await,
     }
 }

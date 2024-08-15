@@ -5,6 +5,7 @@ pub(super) mod echo_command;
 pub(super) mod get_command;
 mod inc_command;
 pub(super) mod keys_command;
+pub mod multi_command;
 pub(super) mod ping_command;
 pub(super) mod set_command;
 pub(super) mod type_command;

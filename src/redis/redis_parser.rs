@@ -35,6 +35,7 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
         let cmd = command.to_uppercase();
         match cmd.as_str() {
             "PING" => Ok(CommandToken::Ping),
+            "MULTI" => Ok(CommandToken::Multi),
             "ECHO" => build_echo_command(&mut it),
             "GET" => build_get_command(&mut it),
             "SET" => build_set_command(&mut it),
