@@ -87,6 +87,7 @@ impl RedisApp {
     ) -> Result<String, RedisError> {
         match cmd {
             CommandToken::Exec => {}
+            CommandToken::Discard => {}
             _ => {
                 let mut transacs = self.transactions.lock().await;
                 if let Some(commands) = transacs.get_mut(&id) {
