@@ -23,7 +23,7 @@ impl XRangeCommand {
 
 impl Command for XRangeCommand {
     async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
-        let mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+        let mem = app.memory.lock().await;
         let start_id = StreamKey::from_string(&self.start, &None, Some(0))
             .map_err(|_| RedisError::InvalidStreamEntryId(self.start))?;
         let end_id = StreamKey::from_string(&self.end, &None, Some(u64::MAX))

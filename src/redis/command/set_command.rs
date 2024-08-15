@@ -28,7 +28,7 @@ impl SetCommand {
 
 impl Command for SetCommand {
     async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
-        let mut mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+        let mut mem = app.memory.lock().await;
 
         let expires: Option<u128> = match self.expiration {
             Some(ex) => Some(utils::get_current_time_ms() + ex),

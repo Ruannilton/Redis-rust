@@ -12,7 +12,7 @@ impl KeysCommand {
 
 impl Command for KeysCommand {
     async fn execute(self, app: &crate::redis::redis_app::RedisApp) -> Result<String, RedisError> {
-        let mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+        let mem = app.memory.lock().await;
 
         let keys: Vec<&String> = mem.keys().collect();
         let keys_owned: Vec<String> = keys.iter().map(|s| s.to_owned().to_owned()).collect();

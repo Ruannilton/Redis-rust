@@ -12,6 +12,7 @@ use crate::{
 pub struct RedisServer {
     listener: TcpListener,
     app: Arc<RedisApp>,
+    connection_counter: u64,
 }
 
 impl RedisServer {
@@ -21,15 +22,18 @@ impl RedisServer {
         Ok(RedisServer {
             listener,
             app: redis_instance,
+            connection_counter: 0,
         })
     }
 
-    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             if let Ok((stream, _)) = self.listener.accept().await {
                 let cli = Arc::clone(&self.app);
+                self.connection_counter += 1;
+                let conn_id = self.connection_counter;
                 tokio::spawn(async move {
-                    match Self::handle_request(cli, stream).await {
+                    match Self::handle_request(cli, stream, conn_id).await {
                         Ok(_) => {}
                         Err(err) => println!("{:?}", err),
                     }
@@ -41,6 +45,7 @@ impl RedisServer {
     async fn handle_request(
         cli: Arc<RedisApp>,
         mut stream: TcpStream,
+        request_id: u64,
     ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
             let mut buffer = [0; 1024]; // Um buffer de tamanho fixo para leitura
@@ -60,7 +65,7 @@ impl RedisServer {
             let commands = redis_parser::parse_token_int_command(&mut tokens_iter)?;
 
             for command in commands {
-                let result = cli.execute_command(command).await?;
+                let result = cli.execute_command(request_id, command).await?;
                 let response = result.into_bytes();
 
                 stream.write(response.as_slice()).await?;

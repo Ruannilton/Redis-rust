@@ -36,7 +36,7 @@ impl Command for XAddCommand {
             ));
         }
 
-        let mut mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+        let mut mem = app.memory.lock().await;
         let last_key = app.get_last_stream_key(&self.key, &mem);
         let stream_key = StreamKey::from_string(&self.entry_id, &last_key, None)
             .map_err(|_| RedisError::InvalidStreamEntryId(self.entry_id))?;

@@ -1,11 +1,18 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
+
+use tokio::sync::{Mutex, MutexGuard};
+
+use crate::resp::resp_serializer::to_resp_string;
 
 use super::{
     command::command_executor,
     rdb::rdb_loader,
     redis_error::RedisError,
     types::{
-        command_token::CommandToken, entry_value::EntryValue, stream_key::StreamKey,
+        command_token::CommandToken,
+        entry_value::EntryValue,
+        stream_key::StreamKey,
+        transactions::{ClientId, Transaction},
         value_container::ValueContainer,
     },
 };
@@ -14,6 +21,7 @@ use super::{
 pub struct RedisApp {
     pub(crate) memory: Mutex<HashMap<String, EntryValue>>,
     pub(crate) configurations: Mutex<HashMap<String, String>>,
+    pub(crate) transactions: Mutex<HashMap<ClientId, Transaction>>,
 }
 
 impl RedisApp {
@@ -25,6 +33,7 @@ impl RedisApp {
         RedisApp {
             memory: Mutex::new(db),
             configurations: Mutex::new(config_map),
+            transactions: Mutex::new(HashMap::new()),
         }
     }
 
@@ -71,14 +80,28 @@ impl RedisApp {
         configs
     }
 
-    pub async fn execute_command(&self, cmd: CommandToken) -> Result<String, RedisError> {
-        command_executor::execute_command(&self, cmd).await
+    pub async fn execute_command(
+        &self,
+        id: ClientId,
+        cmd: CommandToken,
+    ) -> Result<String, RedisError> {
+        match cmd {
+            CommandToken::Exec => {}
+            _ => {
+                let mut transacs = self.transactions.lock().await;
+                if let Some(commands) = transacs.get_mut(&id) {
+                    commands.push_back(cmd);
+                    return Ok(to_resp_string("QUEUED".into()));
+                }
+            }
+        }
+        command_executor::execute_command(&self, id, cmd).await
     }
 
     pub(crate) fn get_last_stream_key(
         &self,
         stream_key: &str,
-        mem: &std::sync::MutexGuard<HashMap<String, EntryValue>>,
+        mem: &MutexGuard<HashMap<String, EntryValue>>,
     ) -> Option<StreamKey> {
         let entry = mem.get(stream_key)?;
 

@@ -1,6 +1,6 @@
 use super::value_container::ValueContainer;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CommandToken {
     Ping,
     Echo(ValueContainer),

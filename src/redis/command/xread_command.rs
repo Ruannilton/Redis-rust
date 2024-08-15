@@ -1,5 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
+use tokio::sync::MutexGuard;
+
 use crate::{
     redis::{
         redis_app::RedisApp,
@@ -19,18 +21,18 @@ pub struct XReadCommand {
 
 impl Command for XReadCommand {
     async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
-        let ids = self.calculate_stream_start_ids(app)?;
+        let ids = self.calculate_stream_start_ids(app).await?;
 
         match self.block_time {
             Some(block_time) => {
                 if block_time > 0 {
                     tokio::time::sleep(Duration::from_millis(block_time)).await;
-                    let mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+                    let mem = app.memory.lock().await;
                     self.xread_reader(&self.stream_keys, &ids, &mem)
                 } else {
                     loop {
                         tokio::time::sleep(Duration::from_millis(1000)).await;
-                        let mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+                        let mem = app.memory.lock().await;
                         let resp = self.xread_reader(&self.stream_keys, &ids, &mem)?;
                         if resp != null_resp_string() {
                             return Ok(resp);
@@ -40,7 +42,7 @@ impl Command for XReadCommand {
                 }
             }
             None => {
-                let mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+                let mem = app.memory.lock().await;
                 self.xread_reader(&self.stream_keys, &ids, &mem)
             }
         }
@@ -56,10 +58,13 @@ impl XReadCommand {
         }
     }
 
-    fn calculate_stream_start_ids(&self, app: &RedisApp) -> Result<Vec<StreamKey>, RedisError> {
+    async fn calculate_stream_start_ids(
+        &self,
+        app: &RedisApp,
+    ) -> Result<Vec<StreamKey>, RedisError> {
         let mut ids = Vec::new();
 
-        let mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+        let mem = app.memory.lock().await;
         let key_id = self.stream_keys.iter().zip(self.stream_ids.iter());
         for (key, id) in key_id {
             if id == "$" {
@@ -81,7 +86,7 @@ impl XReadCommand {
         &self,
         stream_keys: &Vec<String>,
         ids: &Vec<StreamKey>,
-        mem: &std::sync::MutexGuard<HashMap<String, EntryValue>>,
+        mem: &MutexGuard<HashMap<String, EntryValue>>,
     ) -> Result<String, RedisError> {
         let stream_with_time = stream_keys.iter().zip(ids.iter());
         let mut entry_parsed = Vec::new();

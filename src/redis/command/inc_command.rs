@@ -21,7 +21,7 @@ impl IncCommand {
 
 impl Command for IncCommand {
     async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
-        let mut mem = app.memory.lock().map_err(|_| RedisError::LockError)?;
+        let mut mem = app.memory.lock().await;
 
         let new_val = match mem.get_mut(&self.key) {
             Some(entry) => {

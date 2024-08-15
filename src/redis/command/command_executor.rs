@@ -2,6 +2,7 @@ use crate::redis::command::command_trait::Command;
 use crate::redis::redis_app::RedisApp;
 use crate::redis::redis_error::RedisError;
 use crate::redis::types::command_token::CommandToken;
+use crate::redis::types::transactions::ClientId;
 
 use config_get_command::ConfiGet;
 use echo_command::EchoCommand;
@@ -19,7 +20,11 @@ use xread_command::XReadCommand;
 
 use super::*;
 
-pub async fn execute_command(app: &RedisApp, cmd: CommandToken) -> Result<String, RedisError> {
+pub async fn execute_command(
+    app: &RedisApp,
+    client_id: ClientId,
+    cmd: CommandToken,
+) -> Result<String, RedisError> {
     match cmd {
         CommandToken::Ping => PingCommand::new().execute(app).await,
         CommandToken::Echo(arg) => EchoCommand::new(arg.into()).execute(app).await,
@@ -40,7 +45,7 @@ pub async fn execute_command(app: &RedisApp, cmd: CommandToken) -> Result<String
                 .await
         }
         CommandToken::Inc(key) => IncCommand::new(key).execute(app).await,
-        CommandToken::Multi => MultiCommand::new().execute(app).await,
-        CommandToken::Exec => ExecCommand::new().execute(app).await,
+        CommandToken::Multi => MultiCommand::new(client_id).execute(app).await,
+        CommandToken::Exec => ExecCommand::new(client_id).execute(app).await,
     }
 }

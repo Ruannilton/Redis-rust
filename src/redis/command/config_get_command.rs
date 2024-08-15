@@ -17,10 +17,7 @@ impl ConfiGet {
 
 impl Command for ConfiGet {
     async fn execute(self, app: &crate::redis::redis_app::RedisApp) -> Result<String, RedisError> {
-        let configs = app
-            .configurations
-            .lock()
-            .map_err(|_| RedisError::LockError)?;
+        let configs = app.configurations.lock().await;
 
         if let Some(value) = configs.get(&self.key) {
             let value_arr = vec![self.key, value.to_owned()];
