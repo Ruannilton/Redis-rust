@@ -51,17 +51,24 @@ impl RedisApp {
 
     fn parse_args(mut args: impl Iterator<Item = String>) -> HashMap<String, String> {
         let mut configs = HashMap::new();
-
+        _ = configs.insert(
+            "dir".to_owned(),
+            "C:\\Dev\\codecrafters\\codecrafters-redis-rust\\rdb".into(),
+        );
+        _ = configs.insert("dbfilename".to_owned(), "dictionary_1.rdb".into());
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--dir" => {
                     if let Some(dir_value) = args.next() {
-                        _ = configs.insert("dir".to_owned(), dir_value);
+                        _ = configs.insert(
+                            "dir".to_owned(),
+                            "C:\\Dev\\codecrafters\\codecrafters-redis-rust\\rdb".into(),
+                        );
                     }
                 }
                 "--dbfilename" => {
                     if let Some(filename_value) = args.next() {
-                        _ = configs.insert("dbfilename".to_owned(), filename_value);
+                        _ = configs.insert("dbfilename".to_owned(), "dictionary.rdb".into());
                     }
                 }
                 _ => {}

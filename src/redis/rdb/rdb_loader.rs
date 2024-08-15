@@ -125,7 +125,7 @@ fn decode_size(file: &mut impl FileExt) -> Result<SizeEncodedValue, RedisError> 
         0 => Ok(SizeEncodedValue::Size(remaining.into())),
         1 => {
             let ext = file.next_u8()?;
-            let str_size = (remaining as u16) << 8 | (ext as u16);
+            let str_size = ((remaining as u16) << 8) | (ext as u16);
             Ok(SizeEncodedValue::Size(str_size.into()))
         }
         2 => {
