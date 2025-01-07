@@ -37,6 +37,14 @@ impl RedisApp {
         }
     }
 
+    pub async fn get_config(&self, key: &str) -> Option<String> {
+        let conf = self.configurations.lock().await;
+        if let Some(port) = conf.get(key) {
+            return Some(port.to_owned());
+        }
+        None
+    }
+
     fn restore_from_rdb(dir: &String, file: &String) -> HashMap<String, EntryValue> {
         match rdb_loader::load(dir, file) {
             Ok(database) => database,
@@ -71,6 +79,11 @@ impl RedisApp {
                 "--dbfilename" => {
                     if let Some(filename_value) = args.next() {
                         _ = configs.insert("dbfilename".to_owned(), filename_value);
+                    }
+                }
+                "--port" => {
+                    if let Some(filename_value) = args.next() {
+                        _ = configs.insert("port".to_owned(), filename_value);
                     }
                 }
                 _ => {}
