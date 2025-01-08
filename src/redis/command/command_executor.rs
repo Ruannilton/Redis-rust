@@ -10,6 +10,7 @@ use echo_command::EchoCommand;
 use exec_command::ExecCommand;
 use get_command::GetCommand;
 use inc_command::IncCommand;
+use info_command::InfoCommand;
 use keys_command::KeysCommand;
 use multi_command::MultiCommand;
 use ping_command::PingCommand;
@@ -49,5 +50,6 @@ pub async fn execute_command(
         CommandToken::Multi => MultiCommand::new(client_id).execute(app).await,
         CommandToken::Exec => ExecCommand::new(client_id).execute(app).await,
         CommandToken::Discard => DiscardCommand::new(client_id).execute(app).await,
+        CommandToken::Info(key) => InfoCommand::new(key).execute(app).await,
     }
 }

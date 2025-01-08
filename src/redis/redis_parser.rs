@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Peekable, slice::Iter};
+use std::{collections::HashMap, iter::Peekable, process::CommandArgs, slice::Iter};
 
 use crate::resp::resp_token::RespToken;
 
@@ -48,6 +48,7 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
             "XRANGE" => build_xrange_command(&mut it),
             "XREAD" => build_xread_command(&mut it),
             "INCR" => build_inc_command(&mut it),
+            "INFO" => build_info_command(&mut it),
             _ => return Err(RedisError::InvalidCommand(cmd)),
         }
     } else {
@@ -195,6 +196,17 @@ fn build_echo_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisErr
         return match arg {
             RespToken::String(s) => Ok(CommandToken::Echo(ValueContainer::String(s.to_owned()))),
             RespToken::Integer(i) => Ok(CommandToken::Echo(ValueContainer::Integer(i.to_owned()))),
+            _ => Err(RedisError::InvalidArgument),
+        };
+    }
+
+    Err(RedisError::InvalidArgument)
+}
+
+fn build_info_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
+    if let Some(arg) = it.next() {
+        return match arg {
+            RespToken::String(s) => Ok(CommandToken::Info(s.to_owned())),
             _ => Err(RedisError::InvalidArgument),
         };
     }
