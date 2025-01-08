@@ -11,9 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let redis_app = Arc::new(RedisApp::new(args));
 
-    let port = redis_app.get_config("port").await.unwrap_or("6379".into());
-
-    let server = RedisServer::new("127.0.0.1", &port, redis_app).await?;
+    let server = RedisServer::new("127.0.0.1", redis_app).await?;
 
     server.run().await?;
 

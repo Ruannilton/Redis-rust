@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::{
     redis::{redis_app::RedisApp, redis_error::RedisError},
     resp::resp_serializer::to_resp_bulk,
@@ -13,17 +11,27 @@ pub struct InfoCommand {
 
 impl Command for InfoCommand {
     async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
-        let app_type_mutex = app.instance_type.lock().await;
-        let app_type = app_type_mutex.deref();
+        let mut response_str = String::new();
 
-        let instance_type = match app_type {
-            crate::redis::types::instance_type::InstanceType::Master => "master",
-            crate::redis::types::instance_type::InstanceType::Slave => "slave",
+        response_str.push_str("# Replication\n");
+
+        let instance_type = match app.settings.instance_type {
+            crate::redis::types::instance_type::InstanceType::Master => "role:master",
+            crate::redis::types::instance_type::InstanceType::Slave => "role:slave",
         };
 
-        let resp = format!("# Replication\nrole:{}", instance_type);
+        response_str.push_str(instance_type);
 
-        let resp = to_resp_bulk(resp);
+        if let Some(master_replid) = &app.settings.master_replid {
+            let replid = format!("\nmaster_replid:{}", master_replid);
+            response_str.push_str(replid.as_str());
+        }
+
+        let master_repl_offset =
+            format!("\nmaster_repl_offset:{}", app.settings.master_repl_offset);
+        response_str.push_str(master_repl_offset.as_str());
+
+        let resp = to_resp_bulk(response_str);
 
         Ok(resp)
     }

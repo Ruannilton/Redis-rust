@@ -16,12 +16,8 @@ pub struct RedisServer {
 }
 
 impl RedisServer {
-    pub async fn new(
-        address: &str,
-        port: &str,
-        redis_instance: Arc<RedisApp>,
-    ) -> Result<Self, std::io::Error> {
-        let addr = format!("{}:{}", address, port);
+    pub async fn new(address: &str, redis_instance: Arc<RedisApp>) -> Result<Self, std::io::Error> {
+        let addr = format!("{}:{}", address, redis_instance.settings.port);
         let listener = TcpListener::bind(addr).await?;
 
         Ok(RedisServer {
