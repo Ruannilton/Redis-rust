@@ -11,6 +11,7 @@ use super::{
     types::{
         command_token::CommandToken,
         entry_value::EntryValue,
+        instance_type::InstanceType,
         stream_key::StreamKey,
         transactions::{ClientId, Transaction},
         value_container::ValueContainer,
@@ -22,6 +23,7 @@ pub struct RedisApp {
     pub(crate) memory: Mutex<HashMap<String, EntryValue>>,
     pub(crate) configurations: Mutex<HashMap<String, String>>,
     pub(crate) transactions: Mutex<HashMap<ClientId, Transaction>>,
+    pub(crate) instance_type: Mutex<InstanceType>,
 }
 
 impl RedisApp {
@@ -30,10 +32,17 @@ impl RedisApp {
 
         let db = Self::init_database(&config_map);
 
+        let instance_type = if config_map.contains_key("replicaof") {
+            InstanceType::Slave
+        } else {
+            InstanceType::Master
+        };
+
         RedisApp {
             memory: Mutex::new(db),
             configurations: Mutex::new(config_map),
             transactions: Mutex::new(HashMap::new()),
+            instance_type: Mutex::new(instance_type),
         }
     }
 
@@ -82,8 +91,13 @@ impl RedisApp {
                     }
                 }
                 "--port" => {
-                    if let Some(filename_value) = args.next() {
-                        _ = configs.insert("port".to_owned(), filename_value);
+                    if let Some(port_value) = args.next() {
+                        _ = configs.insert("port".to_owned(), port_value);
+                    }
+                }
+                "--replicaof" => {
+                    if let Some(replica_value) = args.next() {
+                        _ = configs.insert("replicaof".to_owned(), replica_value);
                     }
                 }
                 _ => {}
