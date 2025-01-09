@@ -7,11 +7,11 @@ use super::command_trait::Command;
 
 pub struct PsyncCommand {
     replication_id: String,
-    offset: i32,
+    offset: i64,
 }
 
 impl PsyncCommand {
-    pub fn new(replid: String, offset: i32) -> Self {
+    pub fn new(replid: String, offset: i64) -> Self {
         Self {
             replication_id: replid,
             offset: offset,

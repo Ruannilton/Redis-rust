@@ -50,11 +50,22 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
             "INCR" => build_inc_command(&mut it),
             "INFO" => build_info_command(&mut it),
             "REPLCONF" => build_replconf_command(&mut it),
+            "PSYNC" => build_psync_command(&mut it),
             _ => return Err(RedisError::InvalidCommand(cmd)),
         }
     } else {
         Err(RedisError::NoTokenAvailable)
     }
+}
+
+fn build_psync_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
+    if let (Some(RespToken::String(replid)), Some(RespToken::Integer(offset))) =
+        (it.next(), it.next())
+    {
+        return Ok(CommandToken::Psync(replid.to_owned(), *offset));
+    }
+
+    Err(RedisError::NoTokenAvailable)
 }
 
 fn build_xread_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
