@@ -49,6 +49,7 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
             "XREAD" => build_xread_command(&mut it),
             "INCR" => build_inc_command(&mut it),
             "INFO" => build_info_command(&mut it),
+            "REPLCONF" => build_replconf_command(&mut it),
             _ => return Err(RedisError::InvalidCommand(cmd)),
         }
     } else {
@@ -212,6 +213,21 @@ fn build_info_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisErr
     }
 
     Err(RedisError::InvalidArgument)
+}
+
+fn build_replconf_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
+    let mut args: Vec<String> = Vec::new();
+
+    while let Some(arg) = it.next() {
+        match arg {
+            RespToken::String(s) => {
+                args.push(s.to_owned());
+            }
+            _ => return Err(RedisError::InvalidArgument),
+        };
+    }
+
+    Ok(CommandToken::ReplConf(args))
 }
 
 fn search_optional_args(

@@ -17,4 +17,5 @@ pub enum CommandToken {
     Exec,
     Discard,
     Info(String),
+    ReplConf(Vec<String>),
 }
