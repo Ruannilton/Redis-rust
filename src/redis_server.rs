@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::{
-    redis::{redis_app::RedisApp, redis_parser},
+    redis::{redis_app::RedisApp, redis_parser, types::command_token::CommandToken},
     resp::{
         resp_desserializer::{self},
         resp_serializer,
@@ -106,10 +106,22 @@ impl RedisServer {
             let commands = redis_parser::parse_token_int_command(&mut tokens_iter)?;
 
             for command in commands {
-                let result = cli.execute_command(request_id, command).await?;
+                let result = cli.execute_command(request_id, command.clone()).await?;
                 let response = result.into_bytes();
 
                 stream.write(response.as_slice()).await?;
+
+                match command {
+                    CommandToken::Psync(_, _) => {
+                        let hex_file = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
+                        let bin_file = hex_to_bin(hex_file)?;
+                        let bin_string = bin_to_string(&bin_file);
+                        let response = format!("${}\r\n{}", bin_string.len(), bin_string);
+
+                        stream.write(response.as_bytes()).await?;
+                    }
+                    _ => {}
+                }
 
                 println!(
                     "Returned: {:?}",
@@ -119,4 +131,21 @@ impl RedisServer {
         }
         Ok(())
     }
+}
+
+fn hex_to_bin(hex_file: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let mut bytes = Vec::new();
+    let mut chars = hex_file.chars();
+
+    while let (Some(high), Some(low)) = (chars.next(), chars.next()) {
+        let high = high.to_digit(16).ok_or("Invalid hex digit")?;
+        let low = low.to_digit(16).ok_or("Invalid hex digit")?;
+        bytes.push((high << 4 | low) as u8);
+    }
+
+    Ok(bytes)
+}
+
+fn bin_to_string(bin: &[u8]) -> String {
+    bin.iter().map(|b| format!("{:02x}", b)).collect()
 }
