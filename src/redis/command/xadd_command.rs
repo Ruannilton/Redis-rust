@@ -29,7 +29,7 @@ impl XAddCommand {
 }
 
 impl Command for XAddCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         if self.entry_id.as_str() == "0-0" {
             return Ok(to_err_string(
                 "ERR The ID specified in XADD must be greater than 0-0".to_owned(),
@@ -39,7 +39,7 @@ impl Command for XAddCommand {
         let mut mem = app.memory.lock().await;
         let last_key = app.get_last_stream_key(&self.key, &mem);
         let stream_key = StreamKey::from_string(&self.entry_id, &last_key, None)
-            .map_err(|_| RedisError::InvalidStreamEntryId(self.entry_id))?;
+            .map_err(|_| RedisError::InvalidStreamEntryId(self.entry_id.to_owned()))?;
 
         if let Some(last) = last_key {
             if stream_key <= last {
@@ -49,7 +49,7 @@ impl Command for XAddCommand {
 
         let new_entry = StreamEntry {
             id: stream_key.clone(),
-            fields: self.entry_fields,
+            fields: self.entry_fields.to_owned(),
         };
 
         if let Some(entry) = mem.get_mut(&self.key) {
@@ -60,7 +60,7 @@ impl Command for XAddCommand {
         }
 
         mem.insert(
-            self.key,
+            self.key.to_owned(),
             EntryValue {
                 expires_at: None,
                 value: ValueContainer::Stream(vec![new_entry]),

@@ -18,4 +18,5 @@ pub enum CommandToken {
     Discard,
     Info(String),
     ReplConf(Vec<String>),
+    Psync(String, i32),
 }

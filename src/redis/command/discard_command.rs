@@ -16,7 +16,7 @@ impl DiscardCommand {
 }
 
 impl Command for DiscardCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let mut transactions = app.transactions.lock().await;
 
         match transactions.get(&self.client_id) {

@@ -16,7 +16,7 @@ impl TypeCommand {
 }
 
 impl Command for TypeCommand {
-    async fn execute(self, app: &crate::redis::redis_app::RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &crate::redis::redis_app::RedisApp) -> Result<String, RedisError> {
         let mem = app.memory.lock().await;
 
         if let Some(value) = mem.get(&self.key).and_then(|entry| entry.get_value()) {

@@ -14,7 +14,7 @@ impl PingCommand {
 }
 
 impl Command for PingCommand {
-    async fn execute(self, _: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, _: &RedisApp) -> Result<String, RedisError> {
         Ok(to_resp_bulk("PONG".to_owned()))
     }
 }

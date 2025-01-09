@@ -15,7 +15,7 @@ impl EchoCommand {
 }
 
 impl Command for EchoCommand {
-    async fn execute(self, _: &RedisApp) -> Result<String, RedisError> {
-        Ok(to_resp_bulk(self.echo_val))
+    async fn execute(&self, _: &RedisApp) -> Result<String, RedisError> {
+        Ok(to_resp_bulk(self.echo_val.to_owned()))
     }
 }

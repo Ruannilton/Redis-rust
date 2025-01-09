@@ -10,6 +10,7 @@ pub(super) mod info_command;
 pub(super) mod keys_command;
 pub mod multi_command;
 pub(super) mod ping_command;
+pub(super) mod psync_command;
 pub(super) mod replconf_command;
 pub(super) mod set_command;
 pub(super) mod type_command;

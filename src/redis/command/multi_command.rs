@@ -18,7 +18,7 @@ impl MultiCommand {
 }
 
 impl Command for MultiCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let mut transactions = app.transactions.lock().await;
         if !transactions.contains_key(&self.client_id) {
             let transaction = VecDeque::new();

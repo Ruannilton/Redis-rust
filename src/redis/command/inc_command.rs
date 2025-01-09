@@ -20,7 +20,7 @@ impl IncCommand {
 }
 
 impl Command for IncCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let mut mem = app.memory.lock().await;
 
         let new_val = match mem.get_mut(&self.key) {
@@ -50,7 +50,7 @@ impl Command for IncCommand {
                     expires_at: None,
                     value: ValueContainer::Integer(1),
                 };
-                mem.insert(self.key, entry);
+                mem.insert(self.key.to_owned(), entry);
                 1
             }
         };

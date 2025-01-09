@@ -27,7 +27,7 @@ impl SetCommand {
 }
 
 impl Command for SetCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let mut mem = app.memory.lock().await;
 
         let expires: Option<u128> = match self.expiration {
@@ -36,11 +36,11 @@ impl Command for SetCommand {
         };
 
         let entry = EntryValue {
-            value: self.value,
+            value: self.value.to_owned(),
             expires_at: expires,
         };
 
-        _ = mem.insert(self.key, entry);
+        _ = mem.insert(self.key.to_owned(), entry);
         Ok(to_resp_string("OK".to_owned()))
     }
 }

@@ -20,7 +20,7 @@ pub struct XReadCommand {
 }
 
 impl Command for XReadCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let ids = self.calculate_stream_start_ids(app).await?;
 
         match self.block_time {

@@ -10,7 +10,7 @@ pub struct InfoCommand {
 }
 
 impl Command for InfoCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let mut response_str = String::new();
 
         response_str.push_str("# Replication\n");

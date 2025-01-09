@@ -11,7 +11,7 @@ impl KeysCommand {
 }
 
 impl Command for KeysCommand {
-    async fn execute(self, app: &crate::redis::redis_app::RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &crate::redis::redis_app::RedisApp) -> Result<String, RedisError> {
         let mem = app.memory.lock().await;
 
         let keys: Vec<&String> = mem.keys().collect();

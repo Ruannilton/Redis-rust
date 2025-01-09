@@ -14,6 +14,7 @@ use info_command::InfoCommand;
 use keys_command::KeysCommand;
 use multi_command::MultiCommand;
 use ping_command::PingCommand;
+use psync_command::PsyncCommand;
 use replconf_command::ReplConfCommand;
 use set_command::SetCommand;
 use type_command::TypeCommand;
@@ -53,5 +54,6 @@ pub async fn execute_command(
         CommandToken::Discard => DiscardCommand::new(client_id).execute(app).await,
         CommandToken::Info(key) => InfoCommand::new(key).execute(app).await,
         CommandToken::ReplConf(args) => ReplConfCommand::new(args).execute(app).await,
+        CommandToken::Psync(replid, offset) => PsyncCommand::new(replid, offset).execute(app).await,
     }
 }

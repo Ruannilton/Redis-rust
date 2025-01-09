@@ -8,7 +8,7 @@ pub struct ReplConfCommand {
 
 impl Command for ReplConfCommand {
     async fn execute(
-        self,
+        &self,
         _: &crate::redis::redis_app::RedisApp,
     ) -> Result<String, crate::redis::redis_error::RedisError> {
         let response = resp_serializer::to_resp_string("OK".into());

@@ -16,7 +16,7 @@ impl GetCommand {
 }
 
 impl Command for GetCommand {
-    async fn execute(self, app: &RedisApp) -> Result<String, RedisError> {
+    async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let map = app.memory.lock().await;
 
         if let Some(value) = map.get(&self.key).and_then(|f| f.get_value()) {
