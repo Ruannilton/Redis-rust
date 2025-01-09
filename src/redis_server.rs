@@ -7,7 +7,10 @@ use tokio::{
 
 use crate::{
     redis::{redis_app::RedisApp, redis_parser},
-    resp::resp_desserializer::{self},
+    resp::{
+        resp_desserializer::{self},
+        resp_serializer,
+    },
 };
 pub struct RedisServer {
     listener: TcpListener,
@@ -28,6 +31,19 @@ impl RedisServer {
     }
 
     pub async fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(replicaof) = &self.app.settings.replica_of {
+            let addvars: Vec<&str> = replicaof.split(' ').collect();
+            let master_address = format!("{}:{}", addvars[0], addvars[1]);
+
+            let payload = resp_serializer::to_resp_bulk("PING".into());
+            let payload = payload.into_bytes();
+            let mut stream = TcpStream::connect(master_address).await?;
+            stream.write_all(&payload).await?;
+            let mut buffer = [0; 1024];
+            let n = stream.read(&mut buffer).await?;
+            println!("Received from master: {:?}", &buffer[..n]);
+        }
+
         loop {
             if let Ok((stream, _)) = self.listener.accept().await {
                 let cli = Arc::clone(&self.app);
