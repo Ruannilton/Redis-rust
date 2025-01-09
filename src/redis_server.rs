@@ -35,13 +35,30 @@ impl RedisServer {
             let addvars: Vec<&str> = replicaof.split(' ').collect();
             let master_address = format!("{}:{}", addvars[0], addvars[1]);
 
-            let payload = resp_serializer::to_resp_array(vec!["PING".into()]);
-            let payload = payload.into_bytes();
             let mut stream = TcpStream::connect(master_address).await?;
-            stream.write_all(&payload).await?;
             let mut buffer = [0; 1024];
-            let n = stream.read(&mut buffer).await?;
-            println!("Received from master: {:?}", &buffer[..n]);
+
+            let ping_payload = resp_serializer::to_resp_array(vec!["PING".into()]).into_bytes();
+            stream.write_all(&ping_payload).await?;
+            _ = stream.read(&mut buffer).await?;
+
+            let replconf_payload = resp_serializer::to_resp_array(vec![
+                "REPLCONF".into(),
+                "listening-port".into(),
+                self.app.settings.port.to_string(),
+            ])
+            .into_bytes();
+            stream.write_all(&replconf_payload).await?;
+            _ = stream.read(&mut buffer).await?;
+
+            let replconf2_payload = resp_serializer::to_resp_array(vec![
+                "REPLCONF".into(),
+                "capa".into(),
+                "psync2".into(),
+            ])
+            .into_bytes();
+            stream.write_all(&replconf2_payload).await?;
+            _ = stream.read(&mut buffer).await?;
         }
 
         loop {
