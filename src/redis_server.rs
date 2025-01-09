@@ -59,6 +59,13 @@ impl RedisServer {
             .into_bytes();
             stream.write_all(&replconf2_payload).await?;
             _ = stream.read(&mut buffer).await?;
+
+            let psync_payload =
+                resp_serializer::to_resp_array(vec!["PSYNC".into(), "?".into(), "-1".into()])
+                    .into_bytes();
+
+            stream.write_all(&psync_payload).await?;
+            _ = stream.read(&mut buffer).await?;
         }
 
         loop {
