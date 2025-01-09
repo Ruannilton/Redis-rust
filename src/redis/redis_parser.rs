@@ -59,10 +59,13 @@ fn handle_aggregate_command(token: &Vec<RespToken>) -> Result<CommandToken, Redi
 }
 
 fn build_psync_command(it: &mut Iter<RespToken>) -> Result<CommandToken, RedisError> {
-    if let (Some(RespToken::String(replid)), Some(RespToken::Integer(offset))) =
+    if let (Some(RespToken::String(replid)), Some(RespToken::String(offset))) =
         (it.next(), it.next())
     {
-        return Ok(CommandToken::Psync(replid.to_owned(), *offset));
+        return match i64::from_str_radix(&offset, 10) {
+            Ok(off) => Ok(CommandToken::Psync(replid.to_owned(), off)),
+            Err(_) => Err(RedisError::InvalidArgument),
+        };
     }
 
     Err(RedisError::NoTokenAvailable)
