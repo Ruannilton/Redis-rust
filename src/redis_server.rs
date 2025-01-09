@@ -1,5 +1,4 @@
 use std::sync::Arc;
-
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -113,13 +112,12 @@ impl RedisServer {
 
                 match command {
                     CommandToken::Psync(_, _) => {
-                        let hex_file = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
-                        let bin_file = hex_to_bin(hex_file)?;
-                        let bin_string = bin_to_string(&bin_file);
-                        let response = format!("${}\r\n", bin_string.len());
+                        let base64_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
+                        let bin_file = base64_to_bin(base64_file)?;
+                        let response = format!("${}\r\n", bin_file.len());
 
                         stream.write(response.as_bytes()).await?;
-                        stream.write(bin_string.as_bytes()).await?;
+                        stream.write(bin_file.as_slice()).await?;
                     }
                     _ => {}
                 }
@@ -134,19 +132,31 @@ impl RedisServer {
     }
 }
 
-fn hex_to_bin(hex_file: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let mut bytes = Vec::new();
-    let mut chars = hex_file.chars();
+fn base64_to_bin(encoded: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    const BASE64_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-    while let (Some(high), Some(low)) = (chars.next(), chars.next()) {
-        let high = high.to_digit(16).ok_or("Invalid hex digit")?;
-        let low = low.to_digit(16).ok_or("Invalid hex digit")?;
-        bytes.push((high << 4 | low) as u8);
+    let mut decoded = Vec::new();
+    let mut buffer = 0u32;
+    let mut bits_collected = 0;
+
+    for byte in encoded.bytes() {
+        if byte == b'=' {
+            break;
+        }
+
+        let value = BASE64_CHARS
+            .iter()
+            .position(|&c| c == byte)
+            .ok_or("Invalid base64 character")? as u32;
+        buffer = (buffer << 6) | value;
+        bits_collected += 6;
+
+        if bits_collected >= 8 {
+            bits_collected -= 8;
+            decoded.push((buffer >> bits_collected) as u8);
+            buffer &= (1 << bits_collected) - 1;
+        }
     }
 
-    Ok(bytes)
-}
-
-fn bin_to_string(bin: &[u8]) -> String {
-    bin.iter().map(|b| format!("{:02x}", b)).collect()
+    Ok(decoded)
 }
