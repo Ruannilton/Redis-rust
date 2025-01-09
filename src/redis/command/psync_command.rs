@@ -23,7 +23,7 @@ impl Command for PsyncCommand {
     async fn execute(&self, app: &RedisApp) -> Result<String, RedisError> {
         let def = String::new();
         let replid = app.settings.master_replid.as_ref().unwrap_or(&def);
-        let response: String = format!("FULLRESYNC {} {}\r\n", replid, 0);
+        let response: String = format!("FULLRESYNC {} {}", replid, 0);
         let serialized = resp_serializer::to_resp_string(response);
         Ok(serialized)
     }
