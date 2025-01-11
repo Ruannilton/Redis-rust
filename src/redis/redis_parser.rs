@@ -7,11 +7,11 @@ use super::{
     types::{command_token::CommandToken, value_container::ValueContainer},
 };
 
-pub fn parse_token_int_command(
-    it: &mut Peekable<Iter<RespToken>>,
+pub fn parse_token_into_command(
+    tokens: &mut Vec<RespToken>,
 ) -> Result<Vec<CommandToken>, RedisError> {
     let mut commands = Vec::new();
-
+    let mut it = tokens.iter().peekable();
     while let Some(token) = it.next() {
         let cmd = match token {
             RespToken::Array(arr) => handle_aggregate_command(arr)?,
@@ -22,6 +22,12 @@ pub fn parse_token_int_command(
             _ => return Err(RedisError::UnexpectedToken),
         };
 
+        match &cmd {
+            CommandToken::Psync(a, b) => {
+                commands.push(CommandToken::PostPsync(a.clone(), b.clone()));
+            }
+            _ => {}
+        }
         commands.push(cmd);
     }
 
