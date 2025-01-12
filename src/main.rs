@@ -29,27 +29,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         if let Ok((connection_stream, _)) = tcp_listener.accept().await {
+            println!("Connection received");
             connection_counter += 1;
             let app = redis_app.clone();
             tokio::spawn(async move {
-                handle_request(connection_stream, app, connection_counter).await
+                if let Err(e) = handle_request(connection_stream, app, connection_counter).await {
+                    eprintln!("Error handling request: {:?}", e);
+                }
             });
         }
     }
 }
 
-async fn handle_request(mut stream: TcpStream, app: Arc<RedisApp>, connection_id: u64) {
-    let mut stream_buffer = [0; 1024];
-    let read_result = stream.read(&mut stream_buffer).await.unwrap();
+async fn handle_request(
+    mut stream: TcpStream,
+    app: Arc<RedisApp>,
+    connection_id: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    loop {
+        let mut stream_buffer = vec![0; 1024];
+        let read_result = stream.read(&mut stream_buffer).await?;
 
-    if read_result == 0 {
-        return;
-    }
+        if read_result == 0 {
+            return Ok(());
+        }
 
-    let commands = extract_commands(&stream_buffer[..read_result]).unwrap();
+        println!(
+            "Received: {:?}",
+            String::from_utf8_lossy(&stream_buffer[..read_result])
+        );
 
-    for command in commands {
-        execute_command(command, app.clone(), connection_id, &mut stream).await;
+        let commands = extract_commands(&stream_buffer[..read_result])?;
+
+        for command in commands {
+            execute_command(command, app.clone(), connection_id, &mut stream).await?;
+        }
     }
 }
 
@@ -58,7 +72,7 @@ async fn execute_command(
     app: Arc<RedisApp>,
     connection_id: u64,
     stream: &mut TcpStream,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     {
         let mut transactions = app.transactions.lock().await;
 
@@ -68,8 +82,8 @@ async fn execute_command(
                 _ => {
                     tsx.push_back(cmd);
                     let response = resp_serializer::to_resp_string("QUEUED".into()).into_bytes();
-                    let _ = stream.write(&response).await;
-                    return;
+                    stream.write_all(&response).await?;
+                    return Ok(());
                 }
             }
         }
@@ -77,7 +91,8 @@ async fn execute_command(
 
     let exec_result = cmd.execute(connection_id, app).await;
     let response_buffer = exec_result.into_bytes();
-    let _ = stream.write(response_buffer.as_slice()).await;
+    stream.write_all(response_buffer.as_slice()).await?;
+    Ok(())
 }
 
 fn extract_commands(buffer: &[u8]) -> Result<Vec<CommandToken>, Box<dyn std::error::Error>> {
@@ -89,11 +104,11 @@ fn extract_commands(buffer: &[u8]) -> Result<Vec<CommandToken>, Box<dyn std::err
 async fn do_handshake(app: Arc<RedisApp>) -> Result<(), Box<dyn std::error::Error>> {
     let master_address = app.get_master_conn().unwrap();
     let mut stream = TcpStream::connect(master_address).await?;
-    let mut buffer = [0; 1024];
+    let mut buffer = vec![0; 1024];
 
     let ping_payload = resp_serializer::to_resp_array(vec!["PING".into()]).into_bytes();
     stream.write_all(&ping_payload).await?;
-    _ = stream.read(&mut buffer).await?;
+    stream.read(&mut buffer).await?;
 
     let replconf_payload = resp_serializer::to_resp_array(vec![
         "REPLCONF".into(),
@@ -102,18 +117,18 @@ async fn do_handshake(app: Arc<RedisApp>) -> Result<(), Box<dyn std::error::Erro
     ])
     .into_bytes();
     stream.write_all(&replconf_payload).await?;
-    _ = stream.read(&mut buffer).await?;
+    stream.read(&mut buffer).await?;
 
     let replconf2_payload =
         resp_serializer::to_resp_array(vec!["REPLCONF".into(), "capa".into(), "psync2".into()])
             .into_bytes();
     stream.write_all(&replconf2_payload).await?;
-    _ = stream.read(&mut buffer).await?;
+    stream.read(&mut buffer).await?;
 
     let psync_payload =
         resp_serializer::to_resp_array(vec!["PSYNC".into(), "?".into(), "-1".into()]).into_bytes();
 
     stream.write_all(&psync_payload).await?;
-    _ = stream.read(&mut buffer).await?;
+    stream.read(&mut buffer).await?;
     Ok(())
 }
