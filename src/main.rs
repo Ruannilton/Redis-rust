@@ -1,17 +1,17 @@
-mod redis;
+pub mod rdb;
 mod resp;
+mod server;
+pub mod types;
 mod utils;
-use redis::{
-    redis_app::RedisApp,
-    redis_parser,
-    types::{command_token::CommandToken, instance_type::InstanceType},
-};
+
 use resp::{resp_desserializer, resp_serializer};
+use server::redis_app::RedisApp;
 use std::{env, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
+use types::{connection_context::ConnectionContext, instance_type::InstanceType};
 #[tokio::main]
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,46 +59,23 @@ async fn handle_request(
             String::from_utf8_lossy(&stream_buffer[..read_result])
         );
 
-        let commands = extract_commands(&stream_buffer[..read_result])?;
+        if let Some(token) = resp_desserializer::parse_resp_buffer(&stream_buffer[..read_result]) {
+            let conn_addr = stream.peer_addr().unwrap().ip().to_string();
+            let context = ConnectionContext::new(connection_id, conn_addr);
+            let response =
+                server::command_executor::execute_command(app.clone(), &token, context).await;
+            let response_buffer = response.into_bytes();
+            stream.write_all(response_buffer.as_slice()).await?;
 
-        for command in commands {
-            execute_command(command, app.clone(), connection_id, &mut stream).await?;
-        }
-    }
-}
+            let deferred = app.deferred_actions.lock().await;
 
-async fn execute_command(
-    cmd: CommandToken,
-    app: Arc<RedisApp>,
-    connection_id: u64,
-    stream: &mut TcpStream,
-) -> Result<(), Box<dyn std::error::Error>> {
-    {
-        let mut transactions = app.transactions.lock().await;
-
-        if let Some(tsx) = transactions.get_mut(&connection_id) {
-            match cmd {
-                CommandToken::Exec | CommandToken::Discard => {}
-                _ => {
-                    tsx.push_back(cmd);
-                    let response = resp_serializer::to_resp_string("QUEUED".into()).into_bytes();
-                    stream.write_all(&response).await?;
-                    return Ok(());
-                }
+            if let Some(action) = deferred.get(&connection_id) {
+                let response = action(app.clone());
+                let response_buffer = response.into_bytes();
+                stream.write_all(response_buffer.as_slice()).await?;
             }
         }
     }
-
-    let exec_result = cmd.execute(connection_id, app).await;
-    let response_buffer = exec_result.into_bytes();
-    stream.write_all(response_buffer.as_slice()).await?;
-    Ok(())
-}
-
-fn extract_commands(buffer: &[u8]) -> Result<Vec<CommandToken>, Box<dyn std::error::Error>> {
-    let mut tokens = resp_desserializer::desserialize(buffer)?;
-    let commands = redis_parser::parse_token_into_command(&mut tokens)?;
-    Ok(commands)
 }
 
 async fn do_handshake(app: Arc<RedisApp>) -> Result<(), Box<dyn std::error::Error>> {

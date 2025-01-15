@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek},
 };
 
-use crate::redis::redis_error::RedisError;
+use crate::types::redis_error::RedisError;
 
 pub trait FileExt {
     fn next_string(&mut self, len: usize) -> Result<String, RedisError>;

@@ -1,4 +1,4 @@
-use crate::redis::redis_error::RedisError;
+use crate::types::redis_error::RedisError;
 
 #[derive(Debug)]
 pub(crate) enum SizeEncodedValue {

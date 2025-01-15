@@ -3,9 +3,8 @@ use std::{
     fs::{self},
 };
 
-use crate::redis::{
-    redis_error::RedisError,
-    types::{entry_value::EntryValue, value_container::ValueContainer},
+use crate::types::{
+    entry_value::EntryValue, redis_error::RedisError, value_container::ValueContainer,
 };
 
 use super::{

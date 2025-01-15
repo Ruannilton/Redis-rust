@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 
-use crate::{redis::redis_error::RedisError, utils};
+use crate::utils;
+
+use super::redis_error::RedisError;
 
 #[derive(Debug, Clone, Copy)]
 pub struct StreamKey {

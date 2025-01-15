@@ -11,4 +11,7 @@ impl RedisReplica {
             _port: port,
         }
     }
+    pub fn get_address(&self) -> String {
+        format!("{}:{}", self._address, self._port)
+    }
 }

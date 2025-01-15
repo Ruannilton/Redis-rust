@@ -1,6 +1,10 @@
-pub mod command_token;
+pub mod connection_context;
+
 pub mod entry_value;
 pub mod instance_type;
+pub mod redis_error;
+pub mod redis_replica;
+pub mod redis_settings;
 pub mod stream_entry;
 pub mod stream_key;
 pub mod transactions;

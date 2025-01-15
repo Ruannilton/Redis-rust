@@ -3,7 +3,7 @@ use crate::utils;
 use super::value_container::ValueContainer;
 
 #[derive(Debug)]
-pub(crate) struct EntryValue {
+pub struct EntryValue {
     pub(crate) value: ValueContainer,
     pub(crate) expires_at: Option<u128>,
 }

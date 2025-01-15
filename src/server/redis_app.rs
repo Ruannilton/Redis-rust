@@ -1,26 +1,29 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::{
+    io::AsyncWriteExt,
+    net::TcpStream,
+    sync::{Mutex, MutexGuard},
+};
 
-use super::{
+use crate::{
     rdb::rdb_loader,
-    redis_replica::RedisReplica,
-    redis_settings::RedisSettings,
+    resp_desserializer::RespTk,
     types::{
-        entry_value::EntryValue,
-        instance_type::InstanceType,
-        stream_key::StreamKey,
-        transactions::{ClientId, Transaction},
+        entry_value::EntryValue, instance_type::InstanceType, redis_replica::RedisReplica,
+        redis_settings::RedisSettings, stream_key::StreamKey, transactions::TransactionMap,
         value_container::ValueContainer,
     },
+    utils,
 };
 
 #[derive(Debug)]
 pub struct RedisApp {
-    pub(crate) memory: Mutex<HashMap<String, EntryValue>>,
-    pub(crate) transactions: Mutex<HashMap<ClientId, Transaction>>,
-    pub(crate) settings: RedisSettings,
-    pub(crate) _replicas: Mutex<Vec<RedisReplica>>,
+    pub memory: Mutex<HashMap<String, EntryValue>>,
+    pub transactions: Mutex<TransactionMap>,
+    pub settings: RedisSettings,
+    pub replicas: Mutex<Vec<RedisReplica>>,
+    pub deferred_actions: Mutex<HashMap<u64, fn(app: Arc<RedisApp>) -> String>>,
 }
 
 impl RedisApp {
@@ -33,9 +36,10 @@ impl RedisApp {
 
         RedisApp {
             memory: Mutex::new(db),
-            transactions: Mutex::new(HashMap::new()),
+            transactions: Mutex::new(TransactionMap::new()),
             settings: settings,
-            _replicas: Mutex::new(Vec::new()),
+            replicas: Mutex::new(Vec::new()),
+            deferred_actions: Mutex::new(HashMap::new()),
         }
     }
 
@@ -50,6 +54,40 @@ impl RedisApp {
             return Some(master_address);
         }
         None
+    }
+
+    pub async fn get_entry(&self, key: &String) -> Option<ValueContainer> {
+        let mem = self.memory.lock().await;
+
+        return mem.get(key).and_then(|container| container.get_value());
+    }
+
+    pub async fn put_entry(&self, key: String, value: ValueContainer, exp: Option<u128>) {
+        let mut mem = self.memory.lock().await;
+
+        let expires: Option<u128> = match exp {
+            Some(ex) => Some(utils::get_current_time_ms() + ex),
+            None => None,
+        };
+
+        let entry = EntryValue {
+            value: value,
+            expires_at: expires,
+        };
+
+        _ = mem.insert(key, entry);
+    }
+
+    pub async fn broadcast_command(&self, _cmd: &RespTk) {
+        let replicas = self.replicas.lock().await;
+        for replica in replicas.iter() {
+            let replica_addr = replica.get_address();
+            if let Ok(mut stream) = TcpStream::connect(replica_addr).await {
+                let cmd_resp: String = _cmd.into();
+                let bytes = cmd_resp.into_bytes();
+                let _ = stream.write_all(&bytes).await;
+            }
+        }
     }
 
     fn restore_from_rdb(dir: &String, file: &String) -> HashMap<String, EntryValue> {

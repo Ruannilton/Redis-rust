@@ -1,5 +1,3 @@
-use crate::resp::resp_token::RespToken;
-
 use super::stream_entry::StreamEntry;
 
 #[derive(Debug, Clone)]
@@ -8,6 +6,8 @@ pub enum ValueContainer {
     Stream(Vec<StreamEntry>),
     Integer(i64),
     Array(Vec<ValueContainer>),
+    Boolean(bool),
+    Null,
 }
 
 impl Into<String> for ValueContainer {
@@ -22,22 +22,12 @@ impl Into<String> for &ValueContainer {
     }
 }
 
-impl From<RespToken> for ValueContainer {
-    fn from(value: RespToken) -> Self {
-        from_aux(&value)
-    }
-}
-
-impl From<&RespToken> for ValueContainer {
-    fn from(value: &RespToken) -> Self {
-        from_aux(value)
-    }
-}
-
 fn to_string(container: &ValueContainer) -> String {
     match container {
         ValueContainer::String(s) => s.to_owned(),
         ValueContainer::Integer(i) => i.to_string(),
+        ValueContainer::Boolean(b) => b.to_string(),
+        ValueContainer::Null => "null".to_owned(),
         ValueContainer::Stream(a) => a
             .iter()
             .map(|x| x.into())
@@ -48,14 +38,5 @@ fn to_string(container: &ValueContainer) -> String {
             .map(|x| to_string(x))
             .collect::<Vec<String>>()
             .join(", "),
-    }
-}
-
-fn from_aux(value: &RespToken) -> ValueContainer {
-    match value {
-        RespToken::String(s) => ValueContainer::String(s.to_owned()),
-        RespToken::Integer(i) => ValueContainer::Integer(i.to_owned()),
-        RespToken::Error(s) => ValueContainer::String(s.to_owned()),
-        RespToken::Array(a) => ValueContainer::Array(a.iter().map(|x| from_aux(x)).collect()),
     }
 }

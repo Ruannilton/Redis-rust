@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use super::types::instance_type::InstanceType;
+use super::instance_type::InstanceType;
 
 #[derive(Debug)]
 pub struct RedisSettings {
