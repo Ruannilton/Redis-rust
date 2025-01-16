@@ -7,14 +7,14 @@ use crate::{
     resp_desserializer::RespTk,
     server::redis_app::RedisApp,
     types::{
-        entry_value::EntryValue, redis_error::RedisError, stream_key::StreamKey,
-        value_container::ValueContainer,
+        entry_value::EntryValue, execution_response::ExecResponse, redis_error::RedisError,
+        stream_key::StreamKey, value_container::ValueContainer,
     },
 };
 
 use super::command_utils::get_next_arg_string;
 
-pub async fn execute_xread(app: Arc<RedisApp>, token: &RespTk) -> String {
+pub async fn execute_xread(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
     let (block_time, stream_keys, stream_ids) = get_parameters(token);
 
     let ids = calculate_stream_start_ids(&stream_keys, &stream_ids, app.clone())
@@ -26,21 +26,21 @@ pub async fn execute_xread(app: Arc<RedisApp>, token: &RespTk) -> String {
             if block_time > 0 {
                 tokio::time::sleep(Duration::from_millis(block_time)).await;
                 let mem = app.memory.lock().await;
-                xread_reader(&stream_keys, &ids, &mem)
+                xread_reader(&stream_keys, &ids, &mem).into()
             } else {
                 loop {
                     tokio::time::sleep(Duration::from_millis(1000)).await;
                     let mem = app.memory.lock().await;
                     let resp = xread_reader(&stream_keys, &ids, &mem);
                     if resp != resp_serializer::null_resp_string() {
-                        return resp;
+                        return resp.into();
                     }
                 }
             }
         }
         None => {
             let mem = app.memory.lock().await;
-            xread_reader(&stream_keys, &ids, &mem)
+            xread_reader(&stream_keys, &ids, &mem).into()
         }
     }
 }

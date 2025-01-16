@@ -56,21 +56,14 @@ async fn handle_request(
         if let Some(token) = resp_desserializer::parse_resp_buffer(&stream_buffer[..read_result]) {
             let conn_addr = stream.peer_addr().unwrap().ip().to_string();
             let context = ConnectionContext::new(connection_id, conn_addr);
-            let response =
+            let exec_response =
                 server::command_executor::execute_command(app.clone(), &token, context).await;
-            let response_buffer = response.into_bytes();
-            stream.write_all(response_buffer.as_slice()).await?;
 
-            let deferred = app.deferred_actions.lock().await;
+            for response in exec_response.into_iter() {
+                println!("out> {:?}", response.clone());
 
-            if let Some(actions) = deferred.get(&connection_id) {
-                for action in actions {
-                    let response = action(app.clone());
-                    let response_buffer = response.into_bytes();
-                    stream.write_all(response_buffer.as_slice()).await?;
-                }
+                stream.write_all(response.as_slice()).await?;
             }
-            stream.flush().await?;
         }
     }
 }

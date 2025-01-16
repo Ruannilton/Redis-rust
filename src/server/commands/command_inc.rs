@@ -4,12 +4,14 @@ use crate::{
     resp::resp_serializer,
     resp_desserializer::RespTk,
     server::redis_app::RedisApp,
-    types::{entry_value::EntryValue, value_container::ValueContainer},
+    types::{
+        entry_value::EntryValue, execution_response::ExecResponse, value_container::ValueContainer,
+    },
 };
 
 use super::command_utils;
 
-pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> String {
+pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
     let mut args = token.get_command_args();
     let mut mem = app.memory.lock().await;
     let key_op = command_utils::get_next_arg_string(&mut args);
@@ -21,22 +23,24 @@ pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> String {
                     let nv = i + 1;
                     entry.value = ValueContainer::String(nv.to_string());
                     app.broadcast_command(token).await;
-                    return resp_serializer::to_resp_integer(nv);
+                    return resp_serializer::to_resp_integer(nv).into();
                 } else {
                     return resp_serializer::to_err_string(
                         "ERR value is not an integer or out of range".into(),
-                    );
+                    )
+                    .into();
                 }
             }
             ValueContainer::Integer(i) => {
                 entry.value = ValueContainer::Integer(i + 1);
                 app.broadcast_command(token).await;
-                return resp_serializer::to_resp_integer(i + 1);
+                return resp_serializer::to_resp_integer(i + 1).into();
             }
             _ => {
                 return resp_serializer::to_err_string(
                     "ERR value is not an integer or out of range".into(),
-                );
+                )
+                .into();
             }
         }
     } else if let Some(key) = key_op.clone() {
@@ -46,7 +50,7 @@ pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> String {
         };
         mem.insert(key, entry);
         app.broadcast_command(token).await;
-        return resp_serializer::to_resp_integer(1);
+        return resp_serializer::to_resp_integer(1).into();
     }
-    resp_serializer::to_err_string("ERR value is not an integer or out of range".into())
+    resp_serializer::to_err_string("ERR value is not an integer or out of range".into()).into()
 }

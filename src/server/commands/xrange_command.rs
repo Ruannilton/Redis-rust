@@ -4,10 +4,13 @@ use crate::{
     resp::resp_serializer,
     resp_desserializer::RespTk,
     server::redis_app::RedisApp,
-    types::{redis_error::RedisError, stream_key::StreamKey, value_container::ValueContainer},
+    types::{
+        execution_response::ExecResponse, redis_error::RedisError, stream_key::StreamKey,
+        value_container::ValueContainer,
+    },
 };
 
-pub async fn execute_xrange(app: Arc<RedisApp>, token: &RespTk) -> String {
+pub async fn execute_xrange(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
     let mut args = token.get_command_args();
     if let (Some(stream_id), Some(start), Some(end)) = (
         args.next().and_then(|t| t.get_content_string()),
@@ -23,7 +26,7 @@ pub async fn execute_xrange(app: Arc<RedisApp>, token: &RespTk) -> String {
             .unwrap();
 
         if end_id < start_id {
-            return resp_serializer::to_err_string(String::from("ERR Invalid range"));
+            return resp_serializer::to_err_string(String::from("ERR Invalid range")).into();
         }
 
         if let Some(entry_value) = mem.get(&stream_id) {
@@ -40,11 +43,12 @@ pub async fn execute_xrange(app: Arc<RedisApp>, token: &RespTk) -> String {
 
                 let slice = &stream[idx_start..idx_end];
                 let serialized = resp_serializer::slc_objects_to_resp(slice);
-                return serialized;
+                return serialized.into();
             }
         }
 
-        return resp_serializer::to_err_string(String::from("ERR The ID specified not exists"));
+        return resp_serializer::to_err_string(String::from("ERR The ID specified not exists"))
+            .into();
     }
-    resp_serializer::null_resp_string()
+    resp_serializer::null_resp_string().into()
 }

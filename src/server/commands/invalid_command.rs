@@ -1,5 +1,5 @@
-use crate::resp::resp_serializer;
+use crate::{resp::resp_serializer, types::execution_response::ExecResponse};
 
-pub fn execute_invalid() -> String {
-    resp_serializer::to_err_string("INVALID".into())
+pub fn execute_invalid() -> ExecResponse {
+    resp_serializer::to_err_string("INVALID".into()).into()
 }

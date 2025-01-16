@@ -5,12 +5,12 @@ use crate::{
     resp_desserializer::RespTk,
     server::redis_app::RedisApp,
     types::{
-        entry_value::EntryValue, stream_entry::StreamEntry, stream_key::StreamKey,
-        value_container::ValueContainer,
+        entry_value::EntryValue, execution_response::ExecResponse, stream_entry::StreamEntry,
+        stream_key::StreamKey, value_container::ValueContainer,
     },
 };
 
-pub async fn execute_xadd(app: Arc<RedisApp>, token: &RespTk) -> String {
+pub async fn execute_xadd(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
     let mut args = token.get_command_args();
     if let (Some(stream_id), Some(entry_id)) = (
         args.next().and_then(|t| t.get_content_string()),
@@ -27,7 +27,7 @@ pub async fn execute_xadd(app: Arc<RedisApp>, token: &RespTk) -> String {
 
         return execute(token, app, stream_id, entry_id, fields).await;
     }
-    resp_serializer::null_resp_string()
+    resp_serializer::null_resp_string().into()
 }
 
 async fn execute(
@@ -36,11 +36,12 @@ async fn execute(
     stream_id: String,
     entry_id: String,
     fields: Vec<(String, String)>,
-) -> String {
+) -> ExecResponse {
     if entry_id == "0-0" {
         return resp_serializer::to_err_string(
             "ERR The ID specified in XADD must be greater than 0-0".to_owned(),
-        );
+        )
+        .into();
     }
 
     let mut mem = app.memory.lock().await;
@@ -48,7 +49,7 @@ async fn execute(
     let stream_key_result = StreamKey::from_string(&entry_id.to_owned(), &last_key, None);
 
     if stream_key_result.is_err() {
-        return resp_serializer::to_err_string("INVALID_COMMAND".into());
+        return resp_serializer::to_err_string("INVALID_COMMAND".into()).into();
     }
 
     let stream_key = stream_key_result.unwrap();
@@ -57,7 +58,8 @@ async fn execute(
         if stream_key <= last {
             return resp_serializer::to_err_string(String::from(
                 "ERR The ID specified in XADD is equal or smaller than the target stream top item",
-            ));
+            ))
+            .into();
         }
     }
 
@@ -70,7 +72,7 @@ async fn execute(
         if let ValueContainer::Stream(ref mut stream) = entry.value {
             stream.push(new_entry);
             app.broadcast_command(token).await;
-            return resp_serializer::to_resp_bulk(stream_key.into());
+            return resp_serializer::to_resp_bulk(stream_key.into()).into();
         }
     }
 
@@ -82,5 +84,5 @@ async fn execute(
         },
     );
     app.broadcast_command(token).await;
-    resp_serializer::to_resp_bulk(stream_key.into())
+    resp_serializer::to_resp_bulk(stream_key.into()).into()
 }

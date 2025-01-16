@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
-use crate::{resp::resp_serializer, resp_desserializer::RespTk, server::redis_app::RedisApp};
+use crate::{
+    resp::resp_serializer, resp_desserializer::RespTk, server::redis_app::RedisApp,
+    types::execution_response::ExecResponse,
+};
 
-pub async fn execute_info(app: Arc<RedisApp>, _token: &RespTk) -> String {
+pub async fn execute_info(app: Arc<RedisApp>, _token: &RespTk) -> ExecResponse {
     let mut response_str = String::new();
 
     response_str.push_str("# Replication\n");
@@ -24,5 +27,5 @@ pub async fn execute_info(app: Arc<RedisApp>, _token: &RespTk) -> String {
 
     let resp = resp_serializer::to_resp_bulk(response_str);
 
-    resp
+    resp.into()
 }

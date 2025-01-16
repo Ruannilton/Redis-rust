@@ -2,36 +2,21 @@ use std::sync::Arc;
 
 use crate::{
     resp::resp_serializer, resp_desserializer::RespTk, server::redis_app::RedisApp,
-    types::connection_context::ConnectionContext,
+    types::execution_response::ExecResponse,
 };
-
-pub async fn execute_psync(
-    app: Arc<RedisApp>,
-    _token: &RespTk,
-    context: ConnectionContext,
-) -> String {
-    let def = String::new();
-    let replid = app.settings.master_replid.as_ref().unwrap_or(&def);
-    let response: String = format!("FULLRESYNC {} {}", replid, 0);
-    let serialized = resp_serializer::to_resp_string(response);
-    add_resync(app, context).await;
-    serialized
-}
 
 const EMPTY_RDB_HEX :&str = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2";
 
-async fn add_resync(app: Arc<RedisApp>, context: ConnectionContext) {
-    app.defer_action(context.connection_id, init_resync).await;
-    app.defer_action(context.connection_id, end_resync).await;
-}
+pub async fn execute_psync(app: Arc<RedisApp>, _token: &RespTk) -> ExecResponse {
+    let def = String::new();
+    let replid = app.settings.master_replid.as_ref().unwrap_or(&def);
+    let resync: String = format!("FULLRESYNC {} {}", replid, 0);
 
-fn init_resync(_app: Arc<RedisApp>) -> String {
+    let resync_resp = resp_serializer::to_resp_string(resync).into_bytes();
     let file = hex::decode(EMPTY_RDB_HEX).unwrap();
+    let file_header = format!("${}\r\n", file.len()).into_bytes();
 
-    let response: String = format!("${}\r\n", file.len());
-    return response;
-}
-fn end_resync(_app: Arc<RedisApp>) -> String {
-    let file = hex::decode(EMPTY_RDB_HEX).unwrap();
-    String::from_utf8_lossy(&file).to_string()
+    let resp = vec![resync_resp, file_header, file];
+
+    resp.into()
 }

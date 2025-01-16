@@ -1,11 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    resp::resp_serializer, resp_desserializer::RespTk, server::redis_app::RedisApp,
-    types::value_container::ValueContainer,
+    resp::resp_serializer,
+    resp_desserializer::RespTk,
+    server::redis_app::RedisApp,
+    types::{execution_response::ExecResponse, value_container::ValueContainer},
 };
 
-pub async fn execute_set(app: Arc<RedisApp>, token: &RespTk) -> String {
+pub async fn execute_set(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
     let mut args = token.get_command_args();
 
     if let (Some(key), Some(value)) = (
@@ -17,9 +19,9 @@ pub async fn execute_set(app: Arc<RedisApp>, token: &RespTk) -> String {
 
         app.put_entry(key, value, exp).await;
         app.broadcast_command(token).await;
-        return resp_serializer::to_resp_string("OK".to_owned());
+        return resp_serializer::to_resp_string("OK".to_owned()).into();
     }
-    resp_serializer::null_resp_string()
+    resp_serializer::null_resp_string().into()
 }
 
 fn get_optional_args<'a>(

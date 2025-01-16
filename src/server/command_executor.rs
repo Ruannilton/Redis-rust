@@ -3,7 +3,10 @@ use std::sync::Arc;
 use crate::{
     resp::resp_serializer,
     resp_desserializer::RespTk,
-    types::{connection_context::ConnectionContext, transactions::TransactionMap},
+    types::{
+        connection_context::ConnectionContext, execution_response::ExecResponse,
+        transactions::TransactionMap,
+    },
 };
 
 use super::{commands, redis_app::RedisApp};
@@ -12,7 +15,7 @@ pub async fn execute_command(
     app: Arc<RedisApp>,
     token: &RespTk,
     context: ConnectionContext,
-) -> String {
+) -> ExecResponse {
     let cmd_name = token.get_command_name();
 
     let mut transations = app.transactions.lock().await;
@@ -31,16 +34,20 @@ pub async fn execute_command(
             }
             _ => {
                 transations.push(transaction_id, token);
-                return resp_serializer::to_resp_string("QUEUED".to_owned());
+                return resp_serializer::to_resp_string("QUEUED".to_owned()).into();
             }
         }
-        return resp_serializer::to_resp_string("OK".to_owned());
+        return resp_serializer::to_resp_string("OK".to_owned()).into();
     } else {
         return process_command(app.clone(), token, context).await;
     }
 }
 
-async fn process_command(app: Arc<RedisApp>, token: &RespTk, context: ConnectionContext) -> String {
+async fn process_command(
+    app: Arc<RedisApp>,
+    token: &RespTk,
+    context: ConnectionContext,
+) -> ExecResponse {
     let cmd_name = token.get_command_name();
 
     match cmd_name {
@@ -57,7 +64,7 @@ async fn process_command(app: Arc<RedisApp>, token: &RespTk, context: Connection
         "INC" => commands::command_inc::execute_inc(app, token).await,
         "INFO" => commands::info_command::execute_info(app, token).await,
         "REPLCONF" => commands::replconf_command::execute_replconf(app, token, context).await,
-        "PSYNC" => commands::psync_command::execute_psync(app, token, context).await,
+        "PSYNC" => commands::psync_command::execute_psync(app, token).await,
         _ => commands::invalid_command::execute_invalid(),
     }
 }
