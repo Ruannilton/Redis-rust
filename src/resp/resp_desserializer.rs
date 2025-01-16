@@ -167,7 +167,6 @@ impl RespTk {
 }
 
 pub fn parse_resp_buffer(buffer: &[u8]) -> Option<RespTk> {
-    println!("parsing buffer: {:?}", buffer);
     let mut it = buffer.iter().peekable();
     return next_token(&mut it);
 }

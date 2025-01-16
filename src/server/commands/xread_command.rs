@@ -35,7 +35,6 @@ pub async fn execute_xread(app: Arc<RedisApp>, token: &RespTk) -> String {
                     if resp != resp_serializer::null_resp_string() {
                         return resp;
                     }
-                    println!("No entry found");
                 }
             }
         }

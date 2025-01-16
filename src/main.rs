@@ -29,7 +29,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         if let Ok((connection_stream, _)) = tcp_listener.accept().await {
-            println!("Connection received");
             connection_counter += 1;
             let app = redis_app.clone();
             tokio::spawn(async move {
@@ -53,11 +52,6 @@ async fn handle_request(
         if read_result == 0 {
             return Ok(());
         }
-
-        println!(
-            "Received: {:?}",
-            String::from_utf8_lossy(&stream_buffer[..read_result])
-        );
 
         if let Some(token) = resp_desserializer::parse_resp_buffer(&stream_buffer[..read_result]) {
             let conn_addr = stream.peer_addr().unwrap().ip().to_string();
