@@ -33,5 +33,5 @@ fn init_resync(_app: Arc<RedisApp>) -> String {
 }
 fn end_resync(_app: Arc<RedisApp>) -> String {
     let file = hex::decode(EMPTY_RDB_HEX).unwrap();
-    String::from_utf8_lossy(&file).to_string()
+    String::from_utf8(file).unwrap().to_string()
 }
