@@ -60,7 +60,6 @@ async fn handle_request(
                 server::command_executor::execute_command(app.clone(), &token, context).await;
             let response_buffer = response.into_bytes();
             stream.write_all(response_buffer.as_slice()).await?;
-            stream.flush().await?;
 
             let deferred = app.deferred_actions.lock().await;
 
@@ -69,9 +68,9 @@ async fn handle_request(
                     let response = action(app.clone());
                     let response_buffer = response.into_bytes();
                     stream.write_all(response_buffer.as_slice()).await?;
-                    stream.flush().await?;
                 }
             }
+            stream.flush().await?;
         }
     }
 }
