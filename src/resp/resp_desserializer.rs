@@ -2,20 +2,20 @@ use std::{iter::Peekable, slice::Iter};
 
 use crate::types::value_container::ValueContainer;
 
-const SIMPLE_STRING_ID: u8 = b'+';
-const SIMPLE_ERROR_ID: u8 = b'-';
-const INTEGER_ID: u8 = b':';
-const BULKS_STRING_ID: u8 = b'$';
-const ARRAY_ID: u8 = b'*';
-const NULL_ID: u8 = b'_';
-const BOOLEAN_ID: u8 = b'#';
-const DOUBLE_ID: u8 = b',';
-const BIG_NUMBER_ID: u8 = b'(';
-const BULK_ERROR_ID: u8 = b'!';
-const VERBATIM_STRING_ID: u8 = b'=';
-const MAP_ID: u8 = b'%';
-const ATTRIBUTE_ID: u8 = b'`';
-const SET_ID: u8 = b'~';
+const SIMPLE_STRING_ID: char = '+';
+const SIMPLE_ERROR_ID: char = '-';
+const INTEGER_ID: char = ':';
+const BULKS_STRING_ID: char = '$';
+const ARRAY_ID: char = '*';
+const NULL_ID: char = '_';
+const BOOLEAN_ID: char = '#';
+const DOUBLE_ID: char = ',';
+const BIG_NUMBER_ID: char = '(';
+const BULK_ERROR_ID: char = '!';
+const VERBATIM_STRING_ID: char = '=';
+const MAP_ID: char = '%';
+const ATTRIBUTE_ID: char = '`';
+const SET_ID: char = '~';
 
 #[derive(Clone, Debug)]
 pub enum RespTk {
@@ -177,7 +177,7 @@ fn next_token(buffer: &mut Peekable<Iter<u8>>) -> Option<RespTk> {
         return None;
     }
 
-    let id = **id_op.unwrap();
+    let id: char = (**id_op.unwrap()) as char;
 
     match id {
         SIMPLE_STRING_ID => parse_simple_string(buffer),
