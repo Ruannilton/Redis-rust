@@ -66,13 +66,17 @@ async fn handle_request(
                 server::command_executor::execute_command(app.clone(), &token, context).await;
             let response_buffer = response.into_bytes();
             stream.write_all(response_buffer.as_slice()).await?;
+            stream.flush().await?;
 
             let deferred = app.deferred_actions.lock().await;
 
-            if let Some(action) = deferred.get(&connection_id) {
-                let response = action(app.clone());
-                let response_buffer = response.into_bytes();
-                stream.write_all(response_buffer.as_slice()).await?;
+            if let Some(actions) = deferred.get(&connection_id) {
+                for action in actions {
+                    let response = action(app.clone());
+                    let response_buffer = response.into_bytes();
+                    stream.write_all(response_buffer.as_slice()).await?;
+                    stream.flush().await?;
+                }
             }
         }
     }

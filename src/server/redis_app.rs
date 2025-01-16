@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
 use tokio::{
     io::AsyncWriteExt,
@@ -17,13 +20,15 @@ use crate::{
     utils,
 };
 
+type ActionDefer = fn(app: Arc<RedisApp>) -> String;
+
 #[derive(Debug)]
 pub struct RedisApp {
     pub memory: Mutex<HashMap<String, EntryValue>>,
     pub transactions: Mutex<TransactionMap>,
     pub settings: RedisSettings,
     pub replicas: Mutex<Vec<RedisReplica>>,
-    pub deferred_actions: Mutex<HashMap<u64, fn(app: Arc<RedisApp>) -> String>>,
+    pub deferred_actions: Mutex<HashMap<u64, VecDeque<ActionDefer>>>,
 }
 
 impl RedisApp {
@@ -76,6 +81,17 @@ impl RedisApp {
         };
 
         _ = mem.insert(key, entry);
+    }
+
+    pub async fn defer_action(&self, connection_id: u64, action: ActionDefer) {
+        let mut defer = self.deferred_actions.lock().await;
+        if let Some(actions) = defer.get_mut(&connection_id) {
+            actions.push_back(action);
+        } else {
+            let mut actions = VecDeque::new();
+            actions.push_back(action);
+            defer.insert(connection_id, actions);
+        }
     }
 
     pub async fn broadcast_command(&self, _cmd: &RespTk) {
