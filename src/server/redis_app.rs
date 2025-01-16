@@ -28,7 +28,7 @@ pub struct RedisApp {
     pub transactions: Mutex<TransactionMap>,
     pub settings: RedisSettings,
     pub replicas: Mutex<Vec<RedisReplica>>,
-    pub deferred_actions: Mutex<HashMap<u64, VecDeque<ActionDefer>>>,
+    pub replication_buffer: Mutex<Vec<RespTk>>,
 }
 
 impl RedisApp {
@@ -44,7 +44,7 @@ impl RedisApp {
             transactions: Mutex::new(TransactionMap::new()),
             settings: settings,
             replicas: Mutex::new(Vec::new()),
-            deferred_actions: Mutex::new(HashMap::new()),
+            replication_buffer: Mutex::new(Vec::new()),
         }
     }
 
@@ -83,25 +83,30 @@ impl RedisApp {
         _ = mem.insert(key, entry);
     }
 
-    pub async fn defer_action(&self, connection_id: u64, action: ActionDefer) {
-        let mut defer = self.deferred_actions.lock().await;
-        if let Some(actions) = defer.get_mut(&connection_id) {
-            actions.push_back(action);
-        } else {
-            let mut actions = VecDeque::new();
-            actions.push_back(action);
-            defer.insert(connection_id, actions);
-        }
+    pub async fn add_replica(&self, replica: RedisReplica) {
+        let mut replicas = self.replicas.lock().await;
+        replicas.push(replica);
     }
 
-    pub async fn broadcast_command(&self, _cmd: &RespTk) {
+    pub async fn buffer_command(&self, cmd: &RespTk) {
+        let mut buffer = self.replication_buffer.lock().await;
+        buffer.push(cmd.clone());
+    }
+
+    pub async fn broadcast_command(&self) {
         let replicas = self.replicas.lock().await;
+        let buffer = self.replication_buffer.lock().await;
+
         for replica in replicas.iter() {
             let replica_addr = replica.get_address();
             if let Ok(mut stream) = TcpStream::connect(replica_addr).await {
-                let cmd_resp: String = _cmd.into();
-                let bytes = cmd_resp.into_bytes();
-                let _ = stream.write_all(&bytes).await;
+                for cmd in buffer.iter() {
+                    let cmd_resp: String = cmd.into();
+                    println!("replicating> {}", cmd_resp.clone());
+                    let bytes = cmd_resp.into_bytes();
+                    let _ = stream.write_all(&bytes).await;
+                    let _ = stream.flush().await;
+                }
             }
         }
     }

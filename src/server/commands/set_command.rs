@@ -18,7 +18,7 @@ pub async fn execute_set(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
         let exp = get_expiration_time(opts);
 
         app.put_entry(key, value, exp).await;
-        app.broadcast_command(token).await;
+        app.buffer_command(token).await;
         return resp_serializer::to_resp_string("OK".to_owned()).into();
     }
     resp_serializer::null_resp_string().into()

@@ -71,7 +71,7 @@ async fn execute(
     if let Some(entry) = mem.get_mut(&stream_id) {
         if let ValueContainer::Stream(ref mut stream) = entry.value {
             stream.push(new_entry);
-            app.broadcast_command(token).await;
+            app.buffer_command(token).await;
             return resp_serializer::to_resp_bulk(stream_key.into()).into();
         }
     }
@@ -83,6 +83,6 @@ async fn execute(
             value: ValueContainer::Stream(vec![new_entry]),
         },
     );
-    app.broadcast_command(token).await;
+    app.buffer_command(token).await;
     resp_serializer::to_resp_bulk(stream_key.into()).into()
 }

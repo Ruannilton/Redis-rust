@@ -22,7 +22,7 @@ pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
                 if let Ok(i) = i64::from_str_radix(str.as_str(), 10) {
                     let nv = i + 1;
                     entry.value = ValueContainer::String(nv.to_string());
-                    app.broadcast_command(token).await;
+                    app.buffer_command(token).await;
                     return resp_serializer::to_resp_integer(nv).into();
                 } else {
                     return resp_serializer::to_err_string(
@@ -33,7 +33,7 @@ pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
             }
             ValueContainer::Integer(i) => {
                 entry.value = ValueContainer::Integer(i + 1);
-                app.broadcast_command(token).await;
+                app.buffer_command(token).await;
                 return resp_serializer::to_resp_integer(i + 1).into();
             }
             _ => {
@@ -49,7 +49,7 @@ pub async fn execute_inc(app: Arc<RedisApp>, token: &RespTk) -> ExecResponse {
             value: ValueContainer::Integer(1),
         };
         mem.insert(key, entry);
-        app.broadcast_command(token).await;
+        app.buffer_command(token).await;
         return resp_serializer::to_resp_integer(1).into();
     }
     resp_serializer::to_err_string("ERR value is not an integer or out of range".into()).into()

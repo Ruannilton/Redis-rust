@@ -26,8 +26,7 @@ pub async fn execute_replconf(
             "listening-port" => {
                 let port = val;
                 let replica = RedisReplica::new(context.client_address, port);
-                let mut replicas = app.replicas.lock().await;
-                replicas.push(replica);
+                app.add_replica(replica).await;
             }
             _ => {}
         }

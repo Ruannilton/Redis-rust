@@ -64,6 +64,8 @@ async fn handle_request(
 
                 stream.write_all(response.as_slice()).await?;
             }
+
+            app.broadcast_command().await;
         }
     }
 }
