@@ -2,8 +2,6 @@ use std::{iter::Peekable, slice::Iter};
 
 use crate::types::value_container::ValueContainer;
 
-const DELIMITER: [char; 2] = ['\r', '\n'];
-
 const SIMPLE_STRING_ID: u8 = b'+';
 const SIMPLE_ERROR_ID: u8 = b'-';
 const INTEGER_ID: u8 = b':';
@@ -169,6 +167,7 @@ impl RespTk {
 }
 
 pub fn parse_resp_buffer(buffer: &[u8]) -> Option<RespTk> {
+    println!("parsing buffer: {:?}", buffer);
     let mut it = buffer.iter().peekable();
     return next_token(&mut it);
 }
@@ -179,9 +178,9 @@ fn next_token(buffer: &mut Peekable<Iter<u8>>) -> Option<RespTk> {
         return None;
     }
 
-    let id = id_op.unwrap().to_owned();
+    let id = **id_op.unwrap();
 
-    match *id {
+    match id {
         SIMPLE_STRING_ID => parse_simple_string(buffer),
         SIMPLE_ERROR_ID => parse_simple_error(buffer),
         INTEGER_ID => parse_integer(buffer),
@@ -358,14 +357,17 @@ fn parse_set(buffer: &mut Peekable<Iter<u8>>) -> Option<RespTk> {
 
 fn read_until_delimitier(buffer: &mut Peekable<Iter<u8>>) -> String {
     let mut result = String::new();
+    let delimiter = "\r\n";
 
-    while let Some(b) = buffer.next() {
-        result.push((*b).into());
-        if result.ends_with(DELIMITER) {
-            break;
+    while let Some(&b) = buffer.peek() {
+        result.push(*b as char);
+        buffer.next();
+
+        if result.ends_with(delimiter) {
+            result.truncate(result.len() - delimiter.len());
+            return result;
         }
     }
 
-    result.truncate(result.len() - DELIMITER.len());
-    result
+    String::new()
 }
